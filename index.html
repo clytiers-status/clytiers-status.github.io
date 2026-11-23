@@ -539,11 +539,10 @@
           "</svg>"
         );
 
-      // Cookieに保存するのは「アドレス情報（id, address, label）」のみ
+      // Cookieにはアドレス情報（id, address, label）のみ保存する
       let savedServers = loadAddressesFromCookie();
       let selectedServerId = savedServers.length > 0 ? savedServers[0].id : null;
 
-      // ランタイム状態のキャッシュ（Cookieには保存しない）
       const runtimeState = new Map();
       let playerSearchQuery = "";
       let currentPage = 1;
@@ -552,7 +551,6 @@
       const elForm = document.getElementById("add-server-form");
       const elAddrInput = document.getElementById("server-address-input");
       const elLabelInput = document.getElementById("server-label-input");
-      const elAddBtn = document.getElementById("add-server-btn");
       const elServerList = document.getElementById("server-list");
       const elDetailPanel = document.getElementById("detail-panel");
       const elRefreshAllBtn = document.getElementById("refresh-all-btn");
@@ -623,7 +621,6 @@
       }
 
       function saveAddressesToCookie(list) {
-        // 厳格にアドレス情報のみをシリアライズ
         const minimalList = list.map((item) => ({
           id: String(item.id),
           address: String(item.address).trim(),
@@ -763,18 +760,13 @@
           edition: "JE",
           online: true,
           address,
-          host: data.host || address,
-          port: data.port ?? null,
           playersOnline: Number(data.players && data.players.online) || 0,
           playersMax: Number(data.players && data.players.max) || 0,
           players: normalizePlayers(playersList),
           version: (data.version && (data.version.name_clean || data.version.name)) || "不明",
-          software: (data.software && String(data.software)) || "",
           motd: extractMotdText(data.motd),
           icon: typeof data.icon === "string" && data.icon.startsWith("data:image") ? data.icon : null,
-          pingMs: typeof data.retrieved_at === "number" ? null : null,
-          tps: null,
-          source: "mcstatus.io"
+          tps: null
         };
       }
 
@@ -782,28 +774,17 @@
         if (!data || data.online !== true) return null;
         const playersList =
           data.players && Array.isArray(data.players.list) ? data.players.list : [];
-        const pingVal =
-          data.debug && typeof data.debug.ping === "number"
-            ? data.debug.ping
-            : typeof data.ping === "number"
-            ? data.ping
-            : null;
         return {
           edition: "JE",
           online: true,
           address,
-          host: data.hostname || address,
-          port: data.port ?? null,
           playersOnline: Number(data.players && data.players.online) || 0,
           playersMax: Number(data.players && data.players.max) || 0,
           players: normalizePlayers(playersList),
           version: data.version || data.protocol?.name || "不明",
-          software: data.software || "",
           motd: extractMotdText(data.motd),
           icon: typeof data.icon === "string" && data.icon.startsWith("data:image") ? data.icon : null,
-          pingMs: pingVal,
-          tps: null,
-          source: "mcsrvstat.us"
+          tps: null
         };
       }
 
@@ -815,18 +796,13 @@
           edition: "BE",
           online: true,
           address,
-          host: data.host || address,
-          port: data.port ?? null,
           playersOnline: Number(data.players && data.players.online) || 0,
           playersMax: Number(data.players && data.players.max) || 0,
           players: normalizePlayers(playersList),
           version: (data.version && (data.version.name_clean || data.version.name)) || "統合版",
-          software: data.gamemode || "",
           motd: extractMotdText(data.motd),
           icon: null,
-          pingMs: null,
-          tps: null,
-          source: "mcstatus.io"
+          tps: null
         };
       }
 
@@ -838,18 +814,13 @@
           edition: "BE",
           online: true,
           address,
-          host: data.hostname || address,
-          port: data.port ?? null,
           playersOnline: Number(data.players && data.players.online) || 0,
           playersMax: Number(data.players && data.players.max) || 0,
           players: normalizePlayers(playersList),
           version: data.version || "統合版",
-          software: data.gamemode || "",
           motd: extractMotdText(data.motd),
           icon: null,
-          pingMs: null,
-          tps: null,
-          source: "mcsrvstat.us"
+          tps: null
         };
       }
 
@@ -932,7 +903,6 @@
           ]);
 
           const elapsedMs = Math.round(performance.now() - startTime);
-
           const jeOnline = Boolean(jeRes && jeRes.online);
           const beOnline = Boolean(beRes && beRes.online);
 
@@ -1000,8 +970,6 @@
             status: "done",
             online: isOnline,
             editionLabel: editionBadge,
-            jeOnline,
-            beOnline,
             playersOnline,
             playersMax,
             players: mergedPlayers,
@@ -1019,8 +987,6 @@
             status: "done",
             online: false,
             editionLabel: "オフライン",
-            jeOnline: false,
-            beOnline: false,
             playersOnline: 0,
             playersMax: 0,
             players: [],
@@ -1202,7 +1168,6 @@
 
         elDetailPanel.innerHTML = "";
 
-        // ヘッダー
         const header = document.createElement("div");
         header.className = "detail-header";
 
@@ -1244,7 +1209,6 @@
         header.appendChild(reloadBtn);
         elDetailPanel.appendChild(header);
 
-        // ステータスカード群
         const statsGrid = document.createElement("div");
         statsGrid.className = "stats-grid";
 
@@ -1280,7 +1244,6 @@
 
         elDetailPanel.appendChild(statsGrid);
 
-        // MOTD
         const motdBox = document.createElement("div");
         motdBox.className = "motd-box";
         motdBox.textContent = st.motd
@@ -1290,7 +1253,6 @@
           : "MOTD情報なし / オフライン";
         elDetailPanel.appendChild(motdBox);
 
-        // プレイヤー一覧ツールバー（検索欄は再描画時に維持）
         const toolbar = document.createElement("div");
         toolbar.className = "players-toolbar";
 
@@ -1313,7 +1275,6 @@
         toolbar.appendChild(searchInput);
         elDetailPanel.appendChild(toolbar);
 
-        // プレイヤーグリッド＆ページネーション用コンテナ
         const playersContainer = document.createElement("div");
         playersContainer.id = "players-section-container";
         elDetailPanel.appendChild(playersContainer);
