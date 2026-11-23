@@ -1,1450 +1,1655 @@
 <!DOCTYPE html>
-<html lang="ja">
+<html lang="ja" class="dark">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Minecraft サーバーステータス</title>
-  <style>
-    :root {
-      --bg: #f4f6f9;
-      --surface: #ffffff;
-      --surface-2: #eef1f6;
-      --text: #18202c;
-      --muted: #5e6b7d;
-      --border: #d8e0ea;
-      --accent: #2563eb;
-      --accent-hover: #1d4ed8;
-      --accent-soft: rgba(37, 99, 235, 0.12);
-      --ok: #15803d;
-      --ok-bg: rgba(21, 128, 61, 0.12);
-      --warn: #b45309;
-      --warn-bg: rgba(180, 83, 9, 0.12);
-      --err: #b91c1c;
-      --err-bg: rgba(185, 28, 28, 0.12);
-      --shadow: 0 2px 10px rgba(15, 23, 42, 0.06);
-      --radius: 10px;
-    }
-
-    html[data-theme="dark"] {
-      --bg: #0f131a;
-      --surface: #171d27;
-      --surface-2: #1f2734;
-      --text: #e6edf7;
-      --muted: #93a2b8;
-      --border: #2a3446;
-      --accent: #3b82f6;
-      --accent-hover: #2563eb;
-      --accent-soft: rgba(59, 130, 246, 0.16);
-      --ok: #4ade80;
-      --ok-bg: rgba(74, 222, 128, 0.14);
-      --warn: #fbbf24;
-      --warn-bg: rgba(251, 191, 36, 0.14);
-      --err: #f87171;
-      --err-bg: rgba(248, 113, 113, 0.14);
-      --shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
-    }
-
-    * {
-      box-sizing: border-box;
-    }
-
-    body {
-      margin: 0;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Hiragino Kaku Gothic ProN", "Noto Sans JP", sans-serif;
-      background: var(--bg);
-      color: var(--text);
-      line-height: 1.5;
-      transition: background-color 0.2s ease, color 0.2s ease;
-    }
-
-    header {
-      background: var(--surface);
-      border-bottom: 1px solid var(--border);
-      padding: 12px 20px;
-      position: sticky;
-      top: 0;
-      z-index: 20;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 12px;
-      flex-wrap: wrap;
-    }
-
-    .brand {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      font-weight: 700;
-      font-size: 16px;
-    }
-
-    .header-actions {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      flex-wrap: wrap;
-    }
-
-    button, input {
-      font-family: inherit;
-      font-size: 14px;
-    }
-
-    button {
-      background: var(--surface-2);
-      color: var(--text);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 7px 12px;
-      cursor: pointer;
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      transition: background-color 0.15s ease, border-color 0.15s ease, opacity 0.15s ease;
-    }
-
-    button:hover:not(:disabled) {
-      border-color: var(--accent);
-    }
-
-    button:disabled {
-      opacity: 0.55;
-      cursor: not-allowed;
-    }
-
-    button.primary {
-      background: var(--accent);
-      border-color: var(--accent);
-      color: #ffffff;
-      font-weight: 600;
-    }
-
-    button.primary:hover:not(:disabled) {
-      background: var(--accent-hover);
-      border-color: var(--accent-hover);
-    }
-
-    button.danger {
-      color: var(--err);
-      border-color: transparent;
-      background: transparent;
-      padding: 5px 8px;
-    }
-
-    button.danger:hover:not(:disabled) {
-      background: var(--err-bg);
-      border-color: var(--err);
-    }
-
-    input[type="text"], input[type="search"] {
-      background: var(--bg);
-      color: var(--text);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 8px 11px;
-      outline: none;
-    }
-
-    input[type="text"]:focus, input[type="search"]:focus {
-      border-color: var(--accent);
-    }
-
-    .container {
-      max-width: 1280px;
-      margin: 0 auto;
-      padding: 18px 20px 40px;
-      display: grid;
-      grid-template-columns: 340px 1fr;
-      gap: 18px;
-      align-items: start;
-    }
-
-    @media (max-width: 900px) {
-      .container {
-        grid-template-columns: 1fr;
-      }
-    }
-
-    .panel {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      box-shadow: var(--shadow);
-      padding: 16px;
-    }
-
-    .add-form {
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-      margin-bottom: 14px;
-    }
-
-    .add-form-row {
-      display: flex;
-      gap: 8px;
-    }
-
-    .add-form-row input {
-      flex: 1;
-      min-width: 0;
-    }
-
-    .server-list {
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-    }
-
-    .server-item {
-      border: 1px solid var(--border);
-      background: var(--bg);
-      border-radius: 8px;
-      padding: 10px 12px;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 10px;
-      transition: border-color 0.15s ease, background-color 0.15s ease;
-    }
-
-    .server-item:hover {
-      border-color: var(--accent);
-    }
-
-    .server-item.active {
-      border-color: var(--accent);
-      background: var(--accent-soft);
-    }
-
-    .server-item-main {
-      min-width: 0;
-      flex: 1;
-    }
-
-    .server-item-title {
-      font-weight: 700;
-      font-size: 14px;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-
-    .server-item-addr {
-      font-size: 12px;
-      color: var(--muted);
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-    }
-
-    .server-item-meta {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      margin-top: 5px;
-      flex-wrap: wrap;
-    }
-
-    .badge {
-      display: inline-flex;
-      align-items: center;
-      font-size: 11px;
-      font-weight: 700;
-      padding: 2px 7px;
-      border-radius: 999px;
-      border: 1px solid transparent;
-    }
-
-    .badge.fetching {
-      color: var(--warn);
-      background: var(--warn-bg);
-    }
-
-    .badge.online {
-      color: var(--ok);
-      background: var(--ok-bg);
-    }
-
-    .badge.offline {
-      color: var(--err);
-      background: var(--err-bg);
-    }
-
-    .badge.edition {
-      color: var(--accent);
-      background: var(--accent-soft);
-    }
-
-    .detail-header {
-      display: flex;
-      align-items: flex-start;
-      justify-content: space-between;
-      gap: 12px;
-      flex-wrap: wrap;
-      padding-bottom: 14px;
-      border-bottom: 1px solid var(--border);
-    }
-
-    .detail-title-wrap {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      min-width: 0;
-    }
-
-    .server-icon {
-      width: 56px;
-      height: 56px;
-      border-radius: 8px;
-      border: 1px solid var(--border);
-      background: var(--surface-2);
-      object-fit: cover;
-      image-rendering: pixelated;
-      flex-shrink: 0;
-    }
-
-    .detail-title {
-      margin: 0;
-      font-size: 20px;
-      word-break: break-all;
-    }
-
-    .detail-sub {
-      font-size: 13px;
-      color: var(--muted);
-      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-    }
-
-    .stats-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
-      gap: 12px;
-      margin: 16px 0;
-    }
-
-    .stat-card {
-      background: var(--bg);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 12px;
-    }
-
-    .stat-label {
-      font-size: 12px;
-      color: var(--muted);
-      margin-bottom: 4px;
-    }
-
-    .stat-value {
-      font-size: 16px;
-      font-weight: 700;
-      word-break: break-word;
-    }
-
-    .stat-note {
-      font-size: 11px;
-      color: var(--muted);
-      margin-top: 3px;
-    }
-
-    .motd-box {
-      background: #141418;
-      color: #f3f4f6;
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 12px 14px;
-      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-      font-size: 13px;
-      white-space: pre-wrap;
-      word-break: break-word;
-      margin-bottom: 18px;
-    }
-
-    .players-toolbar {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 10px;
-      flex-wrap: wrap;
-      margin-bottom: 12px;
-    }
-
-    .players-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
-      gap: 8px;
-      margin-bottom: 14px;
-    }
-
-    .player-card {
-      display: flex;
-      align-items: center;
-      gap: 9px;
-      background: var(--bg);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 7px 10px;
-      min-width: 0;
-    }
-
-    .player-head {
-      width: 24px;
-      height: 24px;
-      border-radius: 4px;
-      image-rendering: pixelated;
-      flex-shrink: 0;
-      background: var(--surface-2);
-    }
-
-    .player-name {
-      font-size: 13px;
-      font-weight: 600;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-
-    .pagination {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 6px;
-      flex-wrap: wrap;
-      margin-top: 10px;
-    }
-
-    .pagination button.active-page {
-      background: var(--accent);
-      border-color: var(--accent);
-      color: #ffffff;
-      font-weight: 700;
-    }
-
-    .empty-state {
-      text-align: center;
-      color: var(--muted);
-      padding: 36px 16px;
-      border: 1px dashed var(--border);
-      border-radius: 8px;
-    }
-
-    .help-text {
-      font-size: 12px;
-      color: var(--muted);
-      margin-top: 6px;
-    }
-
-    .cookie-preview {
-      margin-top: 10px;
-      background: var(--bg);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 10px;
-      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-      font-size: 12px;
-      white-space: pre-wrap;
-      word-break: break-all;
-      display: none;
-    }
-
-    .cookie-preview.open {
-      display: block;
-    }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MC Live Monitor - マイクラ リアルタイムサーバーステータス</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts: Inter, Noto Sans JP, JetBrains Mono -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&family=Noto+Sans+JP:wght@400;500;700;900&display=swap" rel="stylesheet">
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['"Inter"', '"Noto Sans JP"', 'sans-serif'],
+                        mono: ['"JetBrains Mono"', 'monospace'],
+                    },
+                    colors: {
+                        bg: {
+                            base: '#0d1117',
+                            surface: '#161b22',
+                            elevated: '#1f2630',
+                            border: '#30363d',
+                        },
+                        mc: {
+                            emerald: '#10b981',
+                            emeraldGlow: 'rgba(16, 185, 129, 0.25)',
+                            crimson: '#ef4444',
+                            gold: '#f59e0b',
+                            diamond: '#38bdf8',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            background-color: #f1f5f9;
+            color: #0f172a;
+            background-image:
+                radial-gradient(circle at 10% 10%, rgba(16, 185, 129, 0.08), transparent 35%),
+                radial-gradient(circle at 90% 80%, rgba(56, 189, 248, 0.08), transparent 35%);
+            transition: background-color 0.2s ease, color 0.2s ease;
+        }
+        html.dark body {
+            background-color: #0d1117;
+            color: #e6edf3;
+            background-image:
+                radial-gradient(circle at 10% 10%, rgba(16, 185, 129, 0.05), transparent 30%),
+                radial-gradient(circle at 90% 80%, rgba(56, 189, 248, 0.05), transparent 30%);
+        }
+        .pixelated {
+            image-rendering: pixelated;
+        }
+        /* マイクラゲーム内チャット風MOTDボックス */
+        .mc-motd-box {
+            background-color: #101216;
+            background-image: linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px),
+                              linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px);
+            background-size: 16px 16px;
+            font-family: 'JetBrains Mono', 'Noto Sans JP', monospace;
+            text-shadow: 1.5px 1.5px 0px rgba(0, 0, 0, 0.85);
+            line-height: 1.55;
+        }
+        /* カスタムスクロールバー */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(100, 116, 139, 0.45);
+            border-radius: 9999px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(100, 116, 139, 0.7);
+        }
+        @keyframes toastSlide {
+            from { transform: translateY(16px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+        .toast-anim {
+            animation: toastSlide 0.2s ease-out forwards;
+        }
+    </style>
 </head>
-<body>
-  <header>
-    <div class="brand">
-      <span>Minecraft サーバーステータス</span>
-    </div>
-    <div class="header-actions">
-      <button type="button" id="refresh-all-btn">すべて更新</button>
-      <button type="button" id="inspect-cookie-btn">Cookie確認</button>
-      <button type="button" id="theme-toggle-btn" aria-label="テーマ切替">🌙 ダーク</button>
-    </div>
-  </header>
+<body class="min-h-screen flex flex-col antialiased selection:bg-mc-emerald selection:text-slate-950">
 
-  <main class="container">
-    <aside class="panel">
-      <form class="add-form" id="add-server-form">
-        <input
-          type="text"
-          id="server-address-input"
-          placeholder="サーバーアドレス (例: hypixel.net / play.example.com:25565)"
-          autocomplete="off"
-          required
-        />
-        <div class="add-form-row">
-          <input
-            type="text"
-            id="server-label-input"
-            placeholder="表示名 (省略可)"
-            autocomplete="off"
-          />
-          <button type="submit" class="primary" id="add-server-btn">追加</button>
+    <!-- トップナビゲーションバー -->
+    <header class="sticky top-0 z-40 bg-white/90 dark:bg-bg-surface/90 backdrop-blur-md border-b border-slate-200 dark:border-bg-border transition-colors">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 py-3.5 flex flex-wrap items-center justify-between gap-3">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-400 to-teal-700 p-0.5 shadow-lg shrink-0">
+                    <div class="w-full h-full bg-white dark:bg-bg-base rounded-[10px] flex items-center justify-center">
+                        <i class="fa-solid fa-satellite-dish text-mc-emerald text-lg"></i>
+                    </div>
+                </div>
+                <div>
+                    <div class="flex items-center gap-2">
+                        <h1 class="text-base sm:text-lg font-extrabold tracking-tight text-slate-900 dark:text-white">MC LIVE MONITOR</h1>
+                        <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-mc-emerald/15 text-emerald-700 dark:text-mc-emerald border border-mc-emerald/30">REALTIME API</span>
+                    </div>
+                    <p class="text-xs text-slate-500 dark:text-slate-400">実サーバー通信ステータス・参加プレイヤー・MOTD・TPS/Ping監視</p>
+                </div>
+            </div>
+
+            <!-- 右側コントロール -->
+            <div class="flex items-center gap-2 sm:gap-3">
+                <div class="hidden sm:flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-bg-elevated border border-slate-200 dark:border-bg-border text-slate-700 dark:text-slate-300" title="登録サーバー一覧はブラウザのCookieに自動保存されます">
+                    <i class="fa-solid fa-cookie-bite text-amber-500 dark:text-amber-400"></i>
+                    <span id="cookie-status-text">Cookie保存中</span>
+                </div>
+                <button type="button" onclick="toggleTheme()" id="theme-toggle-btn" class="text-xs font-bold px-3 py-2 rounded-xl bg-slate-100 dark:bg-bg-elevated hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-white border border-slate-200 dark:border-bg-border transition flex items-center gap-1.5 cursor-pointer" title="ライト / ダークモード切替">
+                    <i class="fa-solid fa-sun text-amber-500" id="theme-toggle-icon"></i>
+                    <span id="theme-toggle-label">ライト</span>
+                </button>
+                <button type="button" onclick="refreshAllServers()" id="refresh-all-btn" class="text-xs font-bold px-3.5 py-2 rounded-xl bg-slate-100 dark:bg-bg-elevated hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-white border border-slate-200 dark:border-bg-border transition flex items-center gap-1.5 cursor-pointer">
+                    <i class="fa-solid fa-arrows-rotate" id="refresh-all-icon"></i>
+                    <span>すべて更新</span>
+                </button>
+            </div>
         </div>
-      </form>
+    </header>
 
-      <div class="help-text">
-        追加すると自動で Java版 / 統合版 (BE) を判定し、Cookieにはアドレス情報のみ保存します。
-      </div>
+    <!-- メインコンテンツ (2カラム: 左にサーバー一覧、右に詳細ビュー) -->
+    <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 py-6 grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
 
-      <div id="cookie-preview" class="cookie-preview"></div>
+        <!-- 左カラム: サーバー追加フォーム & 登録済みサーバーリスト (5カラム) -->
+        <div class="lg:col-span-5 space-y-5">
 
-      <div id="server-list" class="server-list" style="margin-top: 14px;"></div>
-    </aside>
+            <!-- サーバー追加カード -->
+            <section class="bg-white dark:bg-bg-surface border border-slate-200 dark:border-bg-border rounded-2xl p-4 sm:p-5 shadow-lg space-y-3.5 transition-colors">
+                <div class="flex items-center justify-between">
+                    <h2 class="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                        <i class="fa-solid fa-plus-circle text-mc-emerald"></i>
+                        <span>サーバーを追加して監視</span>
+                    </h2>
+                    <span class="text-[11px] text-slate-500 dark:text-slate-400">ポート指定可 (例: :25565)</span>
+                </div>
 
-    <section class="panel" id="detail-panel">
-      <div class="empty-state">
-        サーバーを追加するか、左の一覧からサーバーを選択してください。
-      </div>
-    </section>
-  </main>
+                <form onsubmit="handleAddServer(event)" class="space-y-2.5">
+                    <div class="flex flex-col sm:flex-row gap-2">
+                        <input type="text" id="add-address-input" required
+                            placeholder="サーバーアドレス (例: mc.hypixel.net)"
+                            class="flex-1 bg-slate-50 dark:bg-bg-base border border-slate-300 dark:border-bg-border focus:border-mc-emerald rounded-xl px-3.5 py-2.5 text-sm font-mono text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 outline-none transition">
+                        <select id="add-edition-select"
+                            class="bg-slate-50 dark:bg-bg-base border border-slate-300 dark:border-bg-border focus:border-mc-emerald rounded-xl px-3 py-2.5 text-sm font-bold text-slate-800 dark:text-slate-200 outline-none">
+                            <option value="java">Java版</option>
+                            <option value="bedrock">統合版 (BE)</option>
+                            <option value="multi">マルチプレイ (Java + 統合版)</option>
+                        </select>
+                    </div>
+                    <div class="flex gap-2">
+                        <input type="text" id="add-label-input"
+                            placeholder="表示メモ名（省略可・例: フレンド生活鯖）"
+                            class="flex-1 bg-slate-50 dark:bg-bg-base border border-slate-300 dark:border-bg-border focus:border-mc-emerald rounded-xl px-3.5 py-2 text-xs text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 outline-none transition">
+                        <button type="submit"
+                            class="px-4 py-2 rounded-xl bg-mc-emerald hover:bg-emerald-400 text-slate-950 font-extrabold text-xs sm:text-sm transition shrink-0 flex items-center gap-1.5 cursor-pointer shadow-md shadow-emerald-950/30">
+                            <i class="fa-solid fa-satellite-dish"></i>
+                            <span>追加・取得</span>
+                        </button>
+                    </div>
+                </form>
 
-  <script>
-    (function () {
-      "use strict";
+                <!-- ワンクリックお試しサーバー -->
+                <div class="pt-2 border-t border-slate-200 dark:border-bg-border/70">
+                    <div class="text-[11px] text-slate-500 dark:text-slate-400 mb-1.5 flex items-center gap-1">
+                        <i class="fa-solid fa-bolt text-amber-500 dark:text-amber-400"></i>
+                        <span>ワンクリック追加（実在する公開サーバーですぐ試す）:</span>
+                    </div>
+                    <div class="flex flex-wrap gap-1.5">
+                        <button type="button" onclick="quickAddPreset('mc.hypixel.net', 'java', 'Hypixel Network')" class="text-[11px] font-mono px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-bg-elevated hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-bg-border transition cursor-pointer">
+                            + mc.hypixel.net
+                        </button>
+                        <button type="button" onclick="quickAddPreset('play.cubecraft.net', 'java', 'CubeCraft Games')" class="text-[11px] font-mono px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-bg-elevated hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-bg-border transition cursor-pointer">
+                            + play.cubecraft.net
+                        </button>
+                        <button type="button" onclick="quickAddPreset('2b2t.org', 'java', '2b2t Anarchy')" class="text-[11px] font-mono px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-bg-elevated hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-bg-border transition cursor-pointer">
+                            + 2b2t.org
+                        </button>
+                        <button type="button" onclick="quickAddPreset('play.inpvp.net', 'bedrock', 'Mineville (BE)')" class="text-[11px] font-mono px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-bg-elevated hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-bg-border transition cursor-pointer">
+                            + play.inpvp.net (BE)
+                        </button>
+                        <button type="button" onclick="quickAddPreset('play.cubecraft.net', 'multi', 'CubeCraft (Java+BE)')" class="text-[11px] font-mono px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-bg-elevated hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-bg-border transition cursor-pointer">
+                            + CubeCraft (マルチ)
+                        </button>
+                    </div>
+                </div>
+            </section>
 
-      const COOKIE_KEY = "mc_srv_list_v1";
-      const THEME_STORAGE_KEY = "mc_srv_theme_v1";
-      const PAGE_SIZE = 50;
-      const AUTO_REFRESH_MS = 20000;
-      const REQUEST_TIMEOUT_MS = 8000;
+            <!-- 登録済みサーバーリスト -->
+            <section class="space-y-2.5">
+                <div class="flex items-center justify-between px-1">
+                    <h3 class="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-2">
+                        <span>登録済みサーバー一覧</span>
+                        <span id="server-count-badge" class="px-2 py-0.5 rounded-full bg-slate-200 dark:bg-bg-elevated text-slate-800 dark:text-slate-300 font-mono">0</span>
+                    </h3>
+                    <span class="text-[11px] text-slate-400 dark:text-slate-500">クリックで詳細表示</span>
+                </div>
 
-      const DEFAULT_ICON_DATA_URI =
-        "data:image/svg+xml;utf8," +
-        encodeURIComponent(
-          '<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">' +
-            '<rect width="64" height="64" rx="8" fill="#2d3748"/>' +
-            '<rect x="14" y="14" width="36" height="36" fill="#4a5568"/>' +
-            '<rect x="22" y="24" width="6" height="6" fill="#e2e8f0"/>' +
-            '<rect x="36" y="24" width="6" height="6" fill="#e2e8f0"/>' +
-            '<rect x="24" y="38" width="16" height="5" fill="#cbd5e0"/>' +
-          "</svg>"
-        );
+                <div id="server-list-container" class="space-y-2.5">
+                    <!-- JSでサーバーカードをレンダリング -->
+                </div>
+            </section>
+        </div>
 
-      const DEFAULT_HEAD_DATA_URI =
-        "data:image/svg+xml;utf8," +
-        encodeURIComponent(
-          '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 8 8" shape-rendering="crispEdges">' +
-            '<rect width="8" height="8" fill="#8b6f5c"/>' +
-            '<rect x="1" y="1" width="6" height="6" fill="#d8a279"/>' +
-            '<rect x="2" y="3" width="1" height="1" fill="#ffffff"/>' +
-            '<rect x="5" y="3" width="1" height="1" fill="#ffffff"/>' +
-            '<rect x="2" y="5" width="4" height="1" fill="#8d4e38"/>' +
-          "</svg>"
-        );
+        <!-- 右カラム: 選択されたサーバーのリアルタイム詳細ビュー (7カラム) -->
+        <div class="lg:col-span-7" id="detail-panel-wrapper">
+            <!-- JSで詳細パネルをレンダリング -->
+        </div>
 
-      // Cookieにはアドレス情報（id, address, label）のみ保存する
-      let savedServers = loadAddressesFromCookie();
-      let selectedServerId = savedServers.length > 0 ? savedServers[0].id : null;
+    </main>
 
-      const runtimeState = new Map();
-      let playerSearchQuery = "";
-      let currentPage = 1;
-      let activeFetchGeneration = 0;
+    <!-- 削除確認モーダル -->
+    <div id="delete-modal" class="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm hidden items-center justify-center p-4">
+        <div class="bg-white dark:bg-bg-surface border border-slate-200 dark:border-bg-border rounded-2xl max-w-sm w-full p-5 space-y-4 shadow-2xl">
+            <div class="flex items-start gap-3">
+                <div class="w-10 h-10 rounded-xl bg-red-500/15 border border-red-500/30 text-red-500 dark:text-red-400 flex items-center justify-center shrink-0">
+                    <i class="fa-solid fa-trash-can"></i>
+                </div>
+                <div>
+                    <h4 class="font-bold text-slate-900 dark:text-white text-sm">サーバーをリストから削除しますか？</h4>
+                    <p id="delete-modal-target" class="text-xs font-mono text-slate-500 dark:text-slate-400 mt-1 break-all"></p>
+                </div>
+            </div>
+            <div class="flex justify-end gap-2 pt-1">
+                <button type="button" onclick="closeDeleteModal()" class="px-3.5 py-2 rounded-xl text-xs font-bold bg-slate-100 dark:bg-bg-elevated text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 cursor-pointer">キャンセル</button>
+                <button type="button" onclick="confirmDeleteServer()" class="px-3.5 py-2 rounded-xl text-xs font-bold bg-red-600 text-white hover:bg-red-500 cursor-pointer">削除する</button>
+            </div>
+        </div>
+    </div>
 
-      const elForm = document.getElementById("add-server-form");
-      const elAddrInput = document.getElementById("server-address-input");
-      const elLabelInput = document.getElementById("server-label-input");
-      const elServerList = document.getElementById("server-list");
-      const elDetailPanel = document.getElementById("detail-panel");
-      const elRefreshAllBtn = document.getElementById("refresh-all-btn");
-      const elInspectCookieBtn = document.getElementById("inspect-cookie-btn");
-      const elCookiePreview = document.getElementById("cookie-preview");
-      const elThemeToggleBtn = document.getElementById("theme-toggle-btn");
+    <!-- トースト通知エリア -->
+    <div id="toast-container" class="fixed bottom-4 right-4 z-50 flex flex-col gap-2 pointer-events-none"></div>
 
-      initTheme();
-      renderServerList();
-      renderDetailEmptyOrSelected();
+    <script>
+        // ==========================================
+        // フォールバック用 デフォルト草ブロックSVGアイコン
+        // ==========================================
+        const DEFAULT_ICON_SVG = "data:image/svg+xml;utf8," + encodeURIComponent(`
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+                <rect width="64" height="64" fill="#4e342e"/>
+                <rect width="64" height="18" fill="#10b981"/>
+                <rect x="0" y="18" width="10" height="6" fill="#10b981"/>
+                <rect x="18" y="18" width="12" height="8" fill="#10b981"/>
+                <rect x="40" y="18" width="8" height="6" fill="#10b981"/>
+                <rect x="54" y="18" width="10" height="7" fill="#10b981"/>
+                <rect x="12" y="34" width="8" height="6" fill="#3e2723"/>
+                <rect x="42" y="44" width="8" height="6" fill="#3e2723"/>
+            </svg>
+        `);
 
-      if (savedServers.length > 0) {
-        refreshAllServers();
-      }
+        // ==========================================
+        // Cookie & LocalStorage 永続化管理
+        // ==========================================
+        const COOKIE_KEY = 'mc_live_servers_v2';
+        const STORAGE_KEY = 'mc_live_servers_backup_v2';
+        const THEME_KEY = 'mc_live_theme_v1';
 
-      setInterval(() => {
-        if (savedServers.length > 0) {
-          refreshAllServers();
+        function writeCookie(name, value, maxAgeSec = 31536000) {
+            try {
+                document.cookie = `${name}=${encodeURIComponent(value)}; max-age=${maxAgeSec}; path=/; SameSite=Lax`;
+            } catch (e) {
+                console.warn('Cookie書き込み失敗:', e);
+            }
         }
-      }, AUTO_REFRESH_MS);
 
-      function initTheme() {
-        let theme = null;
-        try {
-          theme = localStorage.getItem(THEME_STORAGE_KEY);
-        } catch (_) {}
-        if (!theme) {
-          theme =
-            window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches
-              ? "dark"
-              : "light";
+        function readCookie(name) {
+            try {
+                const pairs = document.cookie ? document.cookie.split('; ') : [];
+                for (const pair of pairs) {
+                    const idx = pair.indexOf('=');
+                    if (idx === -1) continue;
+                    const k = pair.slice(0, idx);
+                    if (k === name) {
+                        return decodeURIComponent(pair.slice(idx + 1));
+                    }
+                }
+            } catch (e) {
+                console.warn('Cookie読み込み失敗:', e);
+            }
+            return null;
         }
-        applyTheme(theme);
-      }
 
-      function applyTheme(theme) {
-        const normalized = theme === "dark" ? "dark" : "light";
-        document.documentElement.setAttribute("data-theme", normalized);
-        elThemeToggleBtn.textContent = normalized === "dark" ? "☀️ ライト" : "🌙 ダーク";
-        try {
-          localStorage.setItem(THEME_STORAGE_KEY, normalized);
-        } catch (_) {}
-      }
+        // ==========================================
+        // ライト / ダークモード切替
+        // ==========================================
+        function applyTheme(isDark) {
+            const root = document.documentElement;
+            if (isDark) {
+                root.classList.add('dark');
+            } else {
+                root.classList.remove('dark');
+            }
+            const icon = document.getElementById('theme-toggle-icon');
+            const label = document.getElementById('theme-toggle-label');
+            if (icon && label) {
+                if (isDark) {
+                    icon.className = 'fa-solid fa-sun text-amber-400';
+                    label.textContent = 'ライト';
+                } else {
+                    icon.className = 'fa-solid fa-moon text-indigo-600';
+                    label.textContent = 'ダーク';
+                }
+            }
+            try {
+                localStorage.setItem(THEME_KEY, isDark ? 'dark' : 'light');
+            } catch (e) {}
+        }
 
-      elThemeToggleBtn.addEventListener("click", () => {
-        const current = document.documentElement.getAttribute("data-theme");
-        applyTheme(current === "dark" ? "light" : "dark");
-      });
+        function toggleTheme() {
+            const currentlyDark = document.documentElement.classList.contains('dark');
+            applyTheme(!currentlyDark);
+        }
 
-      function loadAddressesFromCookie() {
-        try {
-          const cookies = document.cookie ? document.cookie.split("; ") : [];
-          const target = cookies.find((row) => row.startsWith(COOKIE_KEY + "="));
-          if (!target) return [];
-          const rawValue = decodeURIComponent(target.slice(COOKIE_KEY.length + 1));
-          const parsed = JSON.parse(rawValue);
-          if (!Array.isArray(parsed)) return [];
-          return parsed
-            .filter((item) => item && typeof item.address === "string" && item.address.trim() !== "")
-            .map((item, idx) => ({
-              id: typeof item.id === "string" && item.id ? item.id : "srv_" + idx + "_" + Date.now(),
-              address: item.address.trim(),
-              label: typeof item.label === "string" ? item.label.trim() : ""
+        function restoreTheme() {
+            let saved = null;
+            try {
+                saved = localStorage.getItem(THEME_KEY);
+            } catch (e) {}
+            if (saved === 'light') {
+                applyTheme(false);
+            } else {
+                applyTheme(true);
+            }
+        }
+
+        // ==========================================
+        // アプリケーション状態
+        // ==========================================
+        let savedServers = [];      // { id, address, edition, label } ※Cookieにはこの4項目のみ保存
+        let statusCache = {};       // { [id]: { loading, error, data, fetchedAt } }
+        let selectedServerId = null;
+        let playerSearchQuery = '';
+        let currentPlayerPage = 1;
+        const PLAYERS_PER_PAGE = 50;
+        let autoRefreshEnabled = false;
+        let autoRefreshTimer = null;
+        let pendingDeleteId = null;
+
+        // Mojang公式スキンテクスチャのメモリキャッシュ（Cookieには保存しない）
+        const officialSkinCache = new Map();
+
+        /**
+         * サーバー登録リスト（アドレス情報のみ）をCookieに保存
+         */
+        function persistServers() {
+            const minimalList = savedServers.map(s => ({
+                id: s.id,
+                address: s.address,
+                edition: s.edition,
+                label: s.label || ''
             }));
-        } catch (_) {
-          return [];
-        }
-      }
+            const serialized = JSON.stringify(minimalList);
+            writeCookie(COOKIE_KEY, serialized, 31536000);
+            try {
+                localStorage.setItem(STORAGE_KEY, serialized);
+            } catch (e) {}
 
-      function saveAddressesToCookie(list) {
-        const minimalList = list.map((item) => ({
-          id: String(item.id),
-          address: String(item.address).trim(),
-          label: String(item.label || "").trim()
-        }));
-        const encoded = encodeURIComponent(JSON.stringify(minimalList));
-        const maxAge = 60 * 60 * 24 * 365;
-        document.cookie = `${COOKIE_KEY}=${encoded}; max-age=${maxAge}; path=/; SameSite=Lax`;
-        if (elCookiePreview.classList.contains("open")) {
-          elCookiePreview.textContent = JSON.stringify(minimalList, null, 2);
-        }
-      }
-
-      elInspectCookieBtn.addEventListener("click", () => {
-        elCookiePreview.classList.toggle("open");
-        if (elCookiePreview.classList.contains("open")) {
-          const minimalList = savedServers.map((s) => ({
-            id: s.id,
-            address: s.address,
-            label: s.label
-          }));
-          elCookiePreview.textContent = JSON.stringify(minimalList, null, 2);
-        }
-      });
-
-      elForm.addEventListener("submit", async (e) => {
-        e.preventDefault();
-        const rawAddr = elAddrInput.value.trim();
-        const rawLabel = elLabelInput.value.trim();
-        if (!rawAddr) return;
-
-        const existing = savedServers.find(
-          (s) => s.address.toLowerCase() === rawAddr.toLowerCase()
-        );
-
-        let targetServer;
-        if (existing) {
-          if (rawLabel) existing.label = rawLabel;
-          targetServer = existing;
-        } else {
-          targetServer = {
-            id: "srv_" + Date.now().toString(36) + "_" + Math.random().toString(36).slice(2, 7),
-            address: rawAddr,
-            label: rawLabel
-          };
-          savedServers.push(targetServer);
-        }
-
-        saveAddressesToCookie(savedServers);
-        selectedServerId = targetServer.id;
-        currentPage = 1;
-        playerSearchQuery = "";
-
-        elAddrInput.value = "";
-        elLabelInput.value = "";
-
-        renderServerList();
-        renderDetailEmptyOrSelected();
-        await probeAndFetchServer(targetServer);
-      });
-
-      elRefreshAllBtn.addEventListener("click", () => {
-        refreshAllServers();
-      });
-
-      async function refreshAllServers() {
-        if (savedServers.length === 0) return;
-        elRefreshAllBtn.disabled = true;
-        try {
-          await Promise.all(savedServers.map((srv) => probeAndFetchServer(srv)));
-        } finally {
-          elRefreshAllBtn.disabled = false;
-        }
-      }
-
-      async function fetchWithTimeout(url, timeoutMs = REQUEST_TIMEOUT_MS) {
-        const controller = new AbortController();
-        const timer = setTimeout(() => controller.abort(), timeoutMs);
-        try {
-          const res = await fetch(url, {
-            signal: controller.signal,
-            cache: "no-store",
-            headers: { Accept: "application/json" }
-          });
-          if (!res.ok) {
-            throw new Error(`HTTP ${res.status}`);
-          }
-          return await res.json();
-        } finally {
-          clearTimeout(timer);
-        }
-      }
-
-      function normalizePlayers(rawPlayersList) {
-        if (!Array.isArray(rawPlayersList)) return [];
-        const names = [];
-        const seen = new Set();
-        for (const entry of rawPlayersList) {
-          let name = "";
-          if (typeof entry === "string") {
-            name = entry.trim();
-          } else if (entry && typeof entry === "object") {
-            name = String(entry.name_clean || entry.name || entry.username || "").trim();
-          }
-          if (!name) continue;
-          const key = name.toLowerCase();
-          if (!seen.has(key)) {
-            seen.add(key);
-            names.push(name);
-          }
-        }
-        return names;
-      }
-
-      function extractMotdText(motdObj) {
-        if (!motdObj) return "";
-        if (typeof motdObj === "string") {
-          return motdObj.replace(/§[0-9a-fk-or]/gi, "");
-        }
-        if (Array.isArray(motdObj.clean) && motdObj.clean.length > 0) {
-          return motdObj.clean.join("\n");
-        }
-        if (typeof motdObj.raw === "string") {
-          return motdObj.raw.replace(/§[0-9a-fk-or]/gi, "");
-        }
-        if (Array.isArray(motdObj.raw) && motdObj.raw.length > 0) {
-          return motdObj.raw.join("\n").replace(/§[0-9a-fk-or]/gi, "");
-        }
-        return "";
-      }
-
-      function parseMcStatusIoJava(data, address) {
-        if (!data || data.online !== true) return null;
-        const playersList =
-          data.players && Array.isArray(data.players.list) ? data.players.list : [];
-        return {
-          edition: "JE",
-          online: true,
-          address,
-          playersOnline: Number(data.players && data.players.online) || 0,
-          playersMax: Number(data.players && data.players.max) || 0,
-          players: normalizePlayers(playersList),
-          version: (data.version && (data.version.name_clean || data.version.name)) || "不明",
-          motd: extractMotdText(data.motd),
-          icon: typeof data.icon === "string" && data.icon.startsWith("data:image") ? data.icon : null,
-          tps: null
-        };
-      }
-
-      function parseMcSrvStatJava(data, address) {
-        if (!data || data.online !== true) return null;
-        const playersList =
-          data.players && Array.isArray(data.players.list) ? data.players.list : [];
-        return {
-          edition: "JE",
-          online: true,
-          address,
-          playersOnline: Number(data.players && data.players.online) || 0,
-          playersMax: Number(data.players && data.players.max) || 0,
-          players: normalizePlayers(playersList),
-          version: data.version || data.protocol?.name || "不明",
-          motd: extractMotdText(data.motd),
-          icon: typeof data.icon === "string" && data.icon.startsWith("data:image") ? data.icon : null,
-          tps: null
-        };
-      }
-
-      function parseMcStatusIoBedrock(data, address) {
-        if (!data || data.online !== true) return null;
-        const playersList =
-          data.players && Array.isArray(data.players.list) ? data.players.list : [];
-        return {
-          edition: "BE",
-          online: true,
-          address,
-          playersOnline: Number(data.players && data.players.online) || 0,
-          playersMax: Number(data.players && data.players.max) || 0,
-          players: normalizePlayers(playersList),
-          version: (data.version && (data.version.name_clean || data.version.name)) || "統合版",
-          motd: extractMotdText(data.motd),
-          icon: null,
-          tps: null
-        };
-      }
-
-      function parseMcSrvStatBedrock(data, address) {
-        if (!data || data.online !== true) return null;
-        const playersList =
-          data.players && Array.isArray(data.players.list) ? data.players.list : [];
-        return {
-          edition: "BE",
-          online: true,
-          address,
-          playersOnline: Number(data.players && data.players.online) || 0,
-          playersMax: Number(data.players && data.players.max) || 0,
-          players: normalizePlayers(playersList),
-          version: data.version || "統合版",
-          motd: extractMotdText(data.motd),
-          icon: null,
-          tps: null
-        };
-      }
-
-      async function queryJavaEdition(address) {
-        const encoded = encodeURIComponent(address);
-        const ts = Date.now();
-        const errors = [];
-
-        try {
-          const d1 = await fetchWithTimeout(
-            `https://api.mcstatus.io/v2/status/java/${encoded}?_t=${ts}`
-          );
-          const parsed1 = parseMcStatusIoJava(d1, address);
-          if (parsed1) return parsed1;
-        } catch (err) {
-          errors.push("mcstatus:" + (err && err.message ? err.message : "error"));
-        }
-
-        try {
-          const d2 = await fetchWithTimeout(
-            `https://api.mcsrvstat.us/3/${encoded}?_t=${ts}`
-          );
-          const parsed2 = parseMcSrvStatJava(d2, address);
-          if (parsed2) return parsed2;
-        } catch (err) {
-          errors.push("mcsrvstat:" + (err && err.message ? err.message : "error"));
-        }
-
-        return { online: false, edition: "JE", errors };
-      }
-
-      async function queryBedrockEdition(address) {
-        const encoded = encodeURIComponent(address);
-        const ts = Date.now();
-        const errors = [];
-
-        try {
-          const d1 = await fetchWithTimeout(
-            `https://api.mcstatus.io/v2/status/bedrock/${encoded}?_t=${ts}`
-          );
-          const parsed1 = parseMcStatusIoBedrock(d1, address);
-          if (parsed1) return parsed1;
-        } catch (err) {
-          errors.push("mcstatus:" + (err && err.message ? err.message : "error"));
-        }
-
-        try {
-          const d2 = await fetchWithTimeout(
-            `https://api.mcsrvstat.us/bedrock/3/${encoded}?_t=${ts}`
-          );
-          const parsed2 = parseMcSrvStatBedrock(d2, address);
-          if (parsed2) return parsed2;
-        } catch (err) {
-          errors.push("mcsrvstat:" + (err && err.message ? err.message : "error"));
-        }
-
-        return { online: false, edition: "BE", errors };
-      }
-
-      async function probeAndFetchServer(server) {
-        const generation = ++activeFetchGeneration;
-        const prev = runtimeState.get(server.id) || {};
-        const startTime = performance.now();
-
-        runtimeState.set(server.id, {
-          ...prev,
-          status: "fetching",
-          lastError: null
-        });
-
-        renderServerList();
-        if (selectedServerId === server.id) {
-          renderDetail(server.id, { preserveSearchFocus: true });
-        }
-
-        try {
-          const [jeRes, beRes] = await Promise.all([
-            queryJavaEdition(server.address),
-            queryBedrockEdition(server.address)
-          ]);
-
-          const elapsedMs = Math.round(performance.now() - startTime);
-          const jeOnline = Boolean(jeRes && jeRes.online);
-          const beOnline = Boolean(beRes && beRes.online);
-
-          let editionBadge = "オフライン";
-          let isOnline = false;
-
-          if (jeOnline && beOnline) {
-            editionBadge = "両方対応 (JE+BE)";
-            isOnline = true;
-          } else if (jeOnline) {
-            editionBadge = "JE対応";
-            isOnline = true;
-          } else if (beOnline) {
-            editionBadge = "BE対応";
-            isOnline = true;
-          }
-
-          let mergedPlayers = [];
-          const seenNames = new Set();
-          const sourceLists = [
-            ...(jeOnline && Array.isArray(jeRes.players) ? jeRes.players : []),
-            ...(beOnline && Array.isArray(beRes.players) ? beRes.players : [])
-          ];
-          for (const name of sourceLists) {
-            const key = name.toLowerCase();
-            if (!seenNames.has(key)) {
-              seenNames.add(key);
-              mergedPlayers.push(name);
+            const badge = document.getElementById('cookie-status-text');
+            if (badge) {
+                const now = new Date();
+                badge.textContent = `Cookie保存済 (${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')})`;
             }
-          }
-
-          const playersOnline = isOnline
-            ? (jeOnline ? jeRes.playersOnline : 0) + (beOnline ? beRes.playersOnline : 0)
-            : 0;
-
-          const playersMax = isOnline
-            ? Math.max(
-                jeOnline ? jeRes.playersMax : 0,
-                beOnline ? beRes.playersMax : 0
-              )
-            : 0;
-
-          const primary = jeOnline ? jeRes : beOnline ? beRes : null;
-          const secondary = jeOnline && beOnline ? beRes : null;
-
-          const motd = primary
-            ? primary.motd || (secondary ? secondary.motd : "") || ""
-            : "";
-
-          const version =
-            jeOnline && beOnline
-              ? `JE: ${jeRes.version} / BE: ${beRes.version}`
-              : primary
-              ? primary.version
-              : "-";
-
-          const icon = (jeOnline && jeRes.icon) || (beOnline && beRes.icon) || DEFAULT_ICON_DATA_URI;
-
-          const diagnosticErrors = [
-            ...(jeRes && Array.isArray(jeRes.errors) ? jeRes.errors : []),
-            ...(beRes && Array.isArray(beRes.errors) ? beRes.errors : [])
-          ];
-
-          runtimeState.set(server.id, {
-            status: "done",
-            online: isOnline,
-            editionLabel: editionBadge,
-            playersOnline,
-            playersMax,
-            players: mergedPlayers,
-            version,
-            motd,
-            icon,
-            apiResponseMs: elapsedMs,
-            tps: null,
-            updatedAt: new Date(),
-            lastError: !isOnline && diagnosticErrors.length > 0 ? diagnosticErrors.join(" / ") : null
-          });
-        } catch (err) {
-          const elapsedMs = Math.round(performance.now() - startTime);
-          runtimeState.set(server.id, {
-            status: "done",
-            online: false,
-            editionLabel: "オフライン",
-            playersOnline: 0,
-            playersMax: 0,
-            players: [],
-            version: "-",
-            motd: "",
-            icon: DEFAULT_ICON_DATA_URI,
-            apiResponseMs: elapsedMs,
-            tps: null,
-            updatedAt: new Date(),
-            lastError: err && err.message ? err.message : "取得エラー"
-          });
         }
 
-        renderServerList();
-        if (selectedServerId === server.id) {
-          const totalFiltered = getFilteredPlayers(server.id).length;
-          const maxPage = Math.max(1, Math.ceil(totalFiltered / PAGE_SIZE));
-          if (currentPage > maxPage) currentPage = maxPage;
-          renderDetail(server.id, { preserveSearchFocus: generation === activeFetchGeneration });
-        }
-      }
-
-      function renderServerList() {
-        if (savedServers.length === 0) {
-          elServerList.innerHTML =
-            '<div class="empty-state" style="padding: 20px 12px;">登録されたサーバーはありません。</div>';
-          return;
-        }
-
-        elServerList.innerHTML = "";
-        for (const srv of savedServers) {
-          const st = runtimeState.get(srv.id) || { status: "fetching", editionLabel: "取得中..." };
-          const item = document.createElement("div");
-          item.className = "server-item" + (srv.id === selectedServerId ? " active" : "");
-
-          const main = document.createElement("div");
-          main.className = "server-item-main";
-
-          const title = document.createElement("div");
-          title.className = "server-item-title";
-          title.textContent = srv.label || srv.address;
-
-          const addr = document.createElement("div");
-          addr.className = "server-item-addr";
-          addr.textContent = srv.address;
-
-          const meta = document.createElement("div");
-          meta.className = "server-item-meta";
-
-          const statusBadge = document.createElement("span");
-          if (st.status === "fetching") {
-            statusBadge.className = "badge fetching";
-            statusBadge.textContent = "取得中...";
-          } else if (st.online) {
-            statusBadge.className = "badge online";
-            statusBadge.textContent = `オンライン (${st.playersOnline}/${st.playersMax})`;
-          } else {
-            statusBadge.className = "badge offline";
-            statusBadge.textContent = "オフライン";
-          }
-          meta.appendChild(statusBadge);
-
-          if (st.status === "done" && st.online && st.editionLabel) {
-            const edBadge = document.createElement("span");
-            edBadge.className = "badge edition";
-            edBadge.textContent = st.editionLabel;
-            meta.appendChild(edBadge);
-          }
-
-          main.appendChild(title);
-          main.appendChild(addr);
-          main.appendChild(meta);
-
-          const delBtn = document.createElement("button");
-          delBtn.type = "button";
-          delBtn.className = "danger";
-          delBtn.title = "削除";
-          delBtn.textContent = "✕";
-          delBtn.addEventListener("click", (ev) => {
-            ev.stopPropagation();
-            deleteServer(srv.id);
-          });
-
-          item.appendChild(main);
-          item.appendChild(delBtn);
-
-          item.addEventListener("click", () => {
-            if (selectedServerId !== srv.id) {
-              selectedServerId = srv.id;
-              currentPage = 1;
-              playerSearchQuery = "";
-              renderServerList();
-              renderDetail(srv.id, { preserveSearchFocus: false });
-              probeAndFetchServer(srv);
+        /**
+         * Cookie（またはバックアップ）から登録サーバーを復元
+         */
+        function restoreServers() {
+            let raw = readCookie(COOKIE_KEY);
+            if (!raw) {
+                try {
+                    raw = localStorage.getItem(STORAGE_KEY);
+                } catch (e) {}
             }
-          });
 
-          elServerList.appendChild(item);
-        }
-      }
-
-      function deleteServer(id) {
-        savedServers = savedServers.filter((s) => s.id !== id);
-        runtimeState.delete(id);
-        saveAddressesToCookie(savedServers);
-
-        if (selectedServerId === id) {
-          selectedServerId = savedServers.length > 0 ? savedServers[0].id : null;
-          currentPage = 1;
-          playerSearchQuery = "";
-        }
-
-        renderServerList();
-        renderDetailEmptyOrSelected();
-      }
-
-      function renderDetailEmptyOrSelected() {
-        if (!selectedServerId) {
-          elDetailPanel.innerHTML =
-            '<div class="empty-state">サーバーを追加するか、左の一覧からサーバーを選択してください。</div>';
-          return;
-        }
-        renderDetail(selectedServerId, { preserveSearchFocus: false });
-      }
-
-      function getFilteredPlayers(serverId) {
-        const st = runtimeState.get(serverId);
-        const list = st && Array.isArray(st.players) ? st.players : [];
-        const q = playerSearchQuery.trim().toLowerCase();
-        if (!q) return list;
-        return list.filter((name) => name.toLowerCase().includes(q));
-      }
-
-      function renderDetail(serverId, opts = { preserveSearchFocus: false }) {
-        const server = savedServers.find((s) => s.id === serverId);
-        if (!server) {
-          renderDetailEmptyOrSelected();
-          return;
-        }
-
-        const st = runtimeState.get(server.id) || {
-          status: "fetching",
-          online: false,
-          editionLabel: "取得中...",
-          playersOnline: 0,
-          playersMax: 0,
-          players: [],
-          version: "-",
-          motd: "",
-          icon: DEFAULT_ICON_DATA_URI,
-          apiResponseMs: null,
-          tps: null,
-          updatedAt: null,
-          lastError: null
-        };
-
-        const activeEl = document.activeElement;
-        const wasSearching =
-          opts.preserveSearchFocus && activeEl && activeEl.id === "player-search-input";
-        const selStart = wasSearching ? activeEl.selectionStart : null;
-        const selEnd = wasSearching ? activeEl.selectionEnd : null;
-
-        const statusText =
-          st.status === "fetching"
-            ? "取得中..."
-            : st.online
-            ? `オンライン (${st.editionLabel})`
-            : "オフライン";
-
-        const apiRespText =
-          typeof st.apiResponseMs === "number" ? `${st.apiResponseMs} ms` : "-";
-
-        const tpsText =
-          st.tps !== null && st.tps !== undefined ? String(st.tps) : "非公開 (SLP仕様)";
-
-        const updatedText = st.updatedAt
-          ? st.updatedAt.toLocaleTimeString("ja-JP", { hour12: false })
-          : "-";
-
-        elDetailPanel.innerHTML = "";
-
-        const header = document.createElement("div");
-        header.className = "detail-header";
-
-        const titleWrap = document.createElement("div");
-        titleWrap.className = "detail-title-wrap";
-
-        const iconImg = document.createElement("img");
-        iconImg.className = "server-icon";
-        iconImg.alt = server.address;
-        iconImg.src = st.icon || DEFAULT_ICON_DATA_URI;
-        iconImg.onerror = () => {
-          iconImg.onerror = null;
-          iconImg.src = DEFAULT_ICON_DATA_URI;
-        };
-
-        const titleTextWrap = document.createElement("div");
-        const h2 = document.createElement("h2");
-        h2.className = "detail-title";
-        h2.textContent = server.label || server.address;
-
-        const sub = document.createElement("div");
-        sub.className = "detail-sub";
-        sub.textContent = `${server.address} ・ 最終更新: ${updatedText}`;
-
-        titleTextWrap.appendChild(h2);
-        titleTextWrap.appendChild(sub);
-        titleWrap.appendChild(iconImg);
-        titleWrap.appendChild(titleTextWrap);
-
-        const reloadBtn = document.createElement("button");
-        reloadBtn.type = "button";
-        reloadBtn.textContent = st.status === "fetching" ? "取得中..." : "今すぐ更新";
-        reloadBtn.disabled = st.status === "fetching";
-        reloadBtn.addEventListener("click", () => {
-          probeAndFetchServer(server);
-        });
-
-        header.appendChild(titleWrap);
-        header.appendChild(reloadBtn);
-        elDetailPanel.appendChild(header);
-
-        const statsGrid = document.createElement("div");
-        statsGrid.className = "stats-grid";
-
-        statsGrid.appendChild(
-          createStatCard(
-            "状態 / 対応",
-            statusText,
-            st.lastError ? `通信メモ: ${st.lastError}` : "Java/Bedrock自動判定"
-          )
-        );
-        statsGrid.appendChild(
-          createStatCard(
-            "参加人数",
-            `${st.playersOnline} / ${st.playersMax}`,
-            `取得済みユーザー名: ${st.players.length}人`
-          )
-        );
-        statsGrid.appendChild(
-          createStatCard(
-            "TPS",
-            tpsText,
-            "標準Server List Pingでは内部TPSは非公開です"
-          )
-        );
-        statsGrid.appendChild(
-          createStatCard(
-            "API応答時間",
-            apiRespText,
-            "ステータスAPIから応答が返るまでの所要時間"
-          )
-        );
-        statsGrid.appendChild(createStatCard("バージョン", st.version || "-", ""));
-
-        elDetailPanel.appendChild(statsGrid);
-
-        const motdBox = document.createElement("div");
-        motdBox.className = "motd-box";
-        motdBox.textContent = st.motd
-          ? `MOTD:\n${st.motd}`
-          : st.status === "fetching"
-          ? "MOTDを取得中..."
-          : "MOTD情報なし / オフライン";
-        elDetailPanel.appendChild(motdBox);
-
-        const toolbar = document.createElement("div");
-        toolbar.className = "players-toolbar";
-
-        const playersHeading = document.createElement("div");
-        playersHeading.style.fontWeight = "700";
-        playersHeading.textContent = "参加プレイヤー一覧 (1ページ50人)";
-
-        const searchInput = document.createElement("input");
-        searchInput.type = "search";
-        searchInput.id = "player-search-input";
-        searchInput.placeholder = "プレイヤー名で検索...";
-        searchInput.value = playerSearchQuery;
-        searchInput.addEventListener("input", (ev) => {
-          playerSearchQuery = ev.target.value;
-          currentPage = 1;
-          renderPlayersSectionOnly(server.id);
-        });
-
-        toolbar.appendChild(playersHeading);
-        toolbar.appendChild(searchInput);
-        elDetailPanel.appendChild(toolbar);
-
-        const playersContainer = document.createElement("div");
-        playersContainer.id = "players-section-container";
-        elDetailPanel.appendChild(playersContainer);
-
-        renderPlayersSectionOnly(server.id);
-
-        if (wasSearching) {
-          const restoredInput = document.getElementById("player-search-input");
-          if (restoredInput) {
-            restoredInput.focus();
-            if (typeof selStart === "number" && typeof selEnd === "number") {
-              try {
-                restoredInput.setSelectionRange(selStart, selEnd);
-              } catch (_) {}
+            if (raw) {
+                try {
+                    const parsed = JSON.parse(raw);
+                    if (Array.isArray(parsed)) {
+                        savedServers = parsed;
+                    }
+                } catch (e) {
+                    console.error('保存データのパースに失敗:', e);
+                }
             }
-          }
-        }
-      }
 
-      function createStatCard(label, value, note) {
-        const card = document.createElement("div");
-        card.className = "stat-card";
-
-        const lbl = document.createElement("div");
-        lbl.className = "stat-label";
-        lbl.textContent = label;
-
-        const val = document.createElement("div");
-        val.className = "stat-value";
-        val.textContent = value;
-
-        card.appendChild(lbl);
-        card.appendChild(val);
-
-        if (note) {
-          const n = document.createElement("div");
-          n.className = "stat-note";
-          n.textContent = note;
-          card.appendChild(n);
-        }
-
-        return card;
-      }
-
-      function attachHeadFallbackChain(imgEl, playerName) {
-        const encoded = encodeURIComponent(playerName);
-        const fallbacks = [
-          `https://minotar.net/helm/${encoded}/24.png`,
-          `https://mc-heads.net/avatar/${encoded}/24`,
-          `https://crafatar.com/avatars/${encoded}?size=24&overlay`,
-          DEFAULT_HEAD_DATA_URI
-        ];
-        let idx = 0;
-        imgEl.src = fallbacks[0];
-        imgEl.onerror = () => {
-          idx += 1;
-          if (idx < fallbacks.length) {
-            imgEl.src = fallbacks[idx];
-          } else {
-            imgEl.onerror = null;
-          }
-        };
-      }
-
-      function renderPlayersSectionOnly(serverId) {
-        const container = document.getElementById("players-section-container");
-        if (!container) return;
-
-        const st = runtimeState.get(serverId);
-        const filtered = getFilteredPlayers(serverId);
-        const totalItems = filtered.length;
-        const totalPages = Math.max(1, Math.ceil(totalItems / PAGE_SIZE));
-        if (currentPage > totalPages) currentPage = totalPages;
-
-        const startIdx = (currentPage - 1) * PAGE_SIZE;
-        const pageItems = filtered.slice(startIdx, startIdx + PAGE_SIZE);
-
-        container.innerHTML = "";
-
-        if (st && st.status === "fetching" && (!st.players || st.players.length === 0)) {
-          container.innerHTML =
-            '<div class="empty-state">プレイヤー情報を取得中...</div>';
-          return;
-        }
-
-        if (totalItems === 0) {
-          container.innerHTML =
-            '<div class="empty-state">表示できる参加プレイヤーがありません。</div>';
-          return;
-        }
-
-        const grid = document.createElement("div");
-        grid.className = "players-grid";
-
-        for (const name of pageItems) {
-          const card = document.createElement("div");
-          card.className = "player-card";
-
-          const head = document.createElement("img");
-          head.className = "player-head";
-          head.alt = name;
-          attachHeadFallbackChain(head, name);
-
-          const label = document.createElement("span");
-          label.className = "player-name";
-          label.title = name;
-          label.textContent = name;
-
-          card.appendChild(head);
-          card.appendChild(label);
-          grid.appendChild(card);
-        }
-
-        container.appendChild(grid);
-
-        const summary = document.createElement("div");
-        summary.className = "help-text";
-        summary.style.textAlign = "center";
-        summary.textContent = `全 ${totalItems} 件中 ${startIdx + 1} 〜 ${Math.min(
-          startIdx + PAGE_SIZE,
-          totalItems
-        )} 件を表示 (${currentPage} / ${totalPages} ページ)`;
-        container.appendChild(summary);
-
-        if (totalPages > 1) {
-          const nav = document.createElement("div");
-          nav.className = "pagination";
-
-          const prevBtn = document.createElement("button");
-          prevBtn.type = "button";
-          prevBtn.textContent = "前へ";
-          prevBtn.disabled = currentPage <= 1;
-          prevBtn.addEventListener("click", () => {
-            if (currentPage > 1) {
-              currentPage -= 1;
-              renderPlayersSectionOnly(serverId);
+            // 初回起動時（Cookieが空のとき）は代表的な実在サーバーを1件だけ初期登録しておく
+            if (savedServers.length === 0) {
+                savedServers = [
+                    {
+                        id: 'srv_init_1',
+                        address: 'mc.hypixel.net',
+                        edition: 'java',
+                        label: 'Hypixel Network'
+                    }
+                ];
+                persistServers();
             }
-          });
-          nav.appendChild(prevBtn);
 
-          for (let p = 1; p <= totalPages; p += 1) {
-            const pageBtn = document.createElement("button");
-            pageBtn.type = "button";
-            pageBtn.textContent = String(p);
-            if (p === currentPage) {
-              pageBtn.className = "active-page";
+            if (savedServers.length > 0 && !selectedServerId) {
+                selectedServerId = savedServers[0].id;
             }
-            pageBtn.addEventListener("click", () => {
-              currentPage = p;
-              renderPlayersSectionOnly(serverId);
+        }
+
+        // ==========================================
+        // 実マイクラサーバーAPI通信処理 (Java / Bedrock / Multi対応)
+        // ==========================================
+        async function fetchSingleEditionEndpoint(address, edition) {
+            const startTime = performance.now();
+            const encodedAddr = encodeURIComponent(address.trim());
+            const isBedrock = edition === 'bedrock';
+
+            const primaryUrl = isBedrock
+                ? `https://api.mcsrvstat.us/bedrock/3/${encodedAddr}`
+                : `https://api.mcsrvstat.us/3/${encodedAddr}`;
+
+            const fallbackUrl = isBedrock
+                ? `https://api.mcstatus.io/v2/status/bedrock/${encodedAddr}`
+                : `https://api.mcstatus.io/v2/status/java/${encodedAddr}`;
+
+            const [res1, res2] = await Promise.allSettled([
+                fetch(primaryUrl, { cache: 'no-store' }).then(async r => {
+                    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+                    const json = await r.json();
+                    return normalizeMcsrvstatData(json, { address, edition }, Math.round(performance.now() - startTime));
+                }),
+                fetch(fallbackUrl, { cache: 'no-store' }).then(async r => {
+                    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+                    const json = await r.json();
+                    return normalizeMcstatusIoData(json, { address, edition }, Math.round(performance.now() - startTime));
+                })
+            ]);
+
+            const d1 = res1.status === 'fulfilled' ? res1.value : null;
+            const d2 = res2.status === 'fulfilled' ? res2.value : null;
+
+            if (!d1 && !d2) {
+                throw new Error('Both status APIs failed');
+            }
+
+            const base = (d1 && d1.online) ? d1 : ((d2 && d2.online) ? d2 : (d1 || d2));
+            const secondary = base === d1 ? d2 : d1;
+
+            const mergedMap = new Map();
+            const addPlayers = (list, sourceEdition) => {
+                if (!Array.isArray(list)) return;
+                for (const p of list) {
+                    const key = p.name.toLowerCase();
+                    if (!mergedMap.has(key)) {
+                        mergedMap.set(key, { ...p, platform: sourceEdition });
+                    } else if (!mergedMap.get(key).uuid && p.uuid) {
+                        mergedMap.get(key).uuid = p.uuid;
+                    }
+                }
+            };
+            addPlayers(base?.playerList, edition);
+            addPlayers(secondary?.playerList, edition);
+
+            return {
+                ...base,
+                playerList: Array.from(mergedMap.values()),
+                detectedTps: base.detectedTps ?? secondary?.detectedTps ?? null,
+                plugins: base.plugins.length > 0 ? base.plugins : (secondary?.plugins || []),
+                mods: base.mods.length > 0 ? base.mods : (secondary?.mods || [])
+            };
+        }
+
+        async function fetchServerStatus(server) {
+            const id = server.id;
+            statusCache[id] = {
+                ...(statusCache[id] || {}),
+                loading: true,
+                error: null
+            };
+            renderServerList();
+            if (selectedServerId === id) renderDetailPanel();
+
+            try {
+                let normalizedData = null;
+
+                if (server.edition === 'multi') {
+                    const [javaRes, bedrockRes] = await Promise.allSettled([
+                        fetchSingleEditionEndpoint(server.address, 'java'),
+                        fetchSingleEditionEndpoint(server.address, 'bedrock')
+                    ]);
+
+                    const jData = javaRes.status === 'fulfilled' ? javaRes.value : null;
+                    const bData = bedrockRes.status === 'fulfilled' ? bedrockRes.value : null;
+
+                    if (!jData && !bData) {
+                        throw new Error('Java/Bedrock両方の取得に失敗しました');
+                    }
+
+                    const jOnline = Boolean(jData?.online);
+                    const bOnline = Boolean(bData?.online);
+                    const anyOnline = jOnline || bOnline;
+                    const primary = jOnline ? jData : (bOnline ? bData : (jData || bData));
+
+                    const playerMap = new Map();
+                    if (jData?.playerList) {
+                        jData.playerList.forEach(p => playerMap.set(p.name.toLowerCase(), { ...p, platform: 'java' }));
+                    }
+                    if (bData?.playerList) {
+                        bData.playerList.forEach(p => {
+                            const key = p.name.toLowerCase();
+                            if (!playerMap.has(key)) {
+                                playerMap.set(key, { ...p, platform: 'bedrock' });
+                            }
+                        });
+                    }
+
+                    const totalOnline = Math.max(jData?.playersOnline || 0, bData?.playersOnline || 0);
+                    const totalMax = Math.max(jData?.playersMax || 0, bData?.playersMax || 0);
+
+                    normalizedData = {
+                        ...primary,
+                        online: anyOnline,
+                        isMulti: true,
+                        multiDetails: {
+                            java: jData,
+                            bedrock: bData
+                        },
+                        version: [
+                            jOnline ? `JE: ${jData.version}` : null,
+                            bOnline ? `BE: ${bData.version}` : null
+                        ].filter(Boolean).join(' / ') || primary.version,
+                        playersOnline: totalOnline,
+                        playersMax: totalMax,
+                        playerList: Array.from(playerMap.values()),
+                        pingMs: jOnline && bOnline
+                            ? Math.round((jData.pingMs + bData.pingMs) / 2)
+                            : primary.pingMs,
+                        detectedTps: jData?.detectedTps ?? bData?.detectedTps ?? null
+                    };
+                } else {
+                    normalizedData = await fetchSingleEditionEndpoint(server.address, server.edition);
+                }
+
+                statusCache[id] = {
+                    loading: false,
+                    error: null,
+                    data: normalizedData,
+                    fetchedAt: new Date()
+                };
+            } catch (err) {
+                statusCache[id] = {
+                    loading: false,
+                    error: 'サーバーへの接続またはAPI取得に失敗しました。アドレスとポートを確認してください。',
+                    data: null,
+                    fetchedAt: new Date()
+                };
+            }
+
+            renderServerList();
+            if (selectedServerId === id) renderDetailPanel();
+        }
+
+        function normalizeMcsrvstatData(raw, server, apiLatencyMs) {
+            const online = Boolean(raw.online);
+
+            let playerList = [];
+            if (raw.players && Array.isArray(raw.players.list)) {
+                playerList = raw.players.list.map(p => ({
+                    name: typeof p === 'string' ? p : (p.name || 'Unknown'),
+                    uuid: typeof p === 'object' && p.uuid ? p.uuid : null
+                }));
+            }
+
+            let motdHtml = '';
+            let motdClean = '';
+            if (raw.motd) {
+                if (Array.isArray(raw.motd.html)) {
+                    motdHtml = raw.motd.html.join('<br>');
+                } else if (Array.isArray(raw.motd.clean)) {
+                    motdHtml = escapeHTML(raw.motd.clean.join('\n')).replace(/\n/g, '<br>');
+                }
+                if (Array.isArray(raw.motd.clean)) {
+                    motdClean = raw.motd.clean.join('\n');
+                }
+            }
+
+            let plugins = [];
+            if (Array.isArray(raw.plugins)) {
+                plugins = raw.plugins.map(pl => typeof pl === 'string' ? pl : `${pl.name}${pl.version ? ' ' + pl.version : ''}`);
+            }
+            let mods = [];
+            if (Array.isArray(raw.mods)) {
+                mods = raw.mods.map(m => typeof m === 'string' ? m : `${m.name}${m.version ? ' ' + m.version : ''}`);
+            }
+
+            const detectedTps = extractTpsFromText(motdClean + ' ' + JSON.stringify(raw.info || ''));
+
+            return {
+                online,
+                hostname: raw.hostname || server.address,
+                ip: raw.ip || '非公開',
+                port: raw.port || (server.edition === 'bedrock' ? 19132 : 25565),
+                version: raw.version || '不明',
+                protocol: raw.protocol ? `${raw.protocol.name || ''} (${raw.protocol.version ?? raw.protocol})` : '不明',
+                software: raw.software || null,
+                icon: raw.icon || DEFAULT_ICON_SVG,
+                playersOnline: raw.players ? (raw.players.online ?? 0) : 0,
+                playersMax: raw.players ? (raw.players.max ?? 0) : 0,
+                playerList,
+                motdHtml: motdHtml || '<span class="text-slate-500">MOTDなし</span>',
+                motdClean,
+                map: raw.map && raw.map.clean ? raw.map.clean : (typeof raw.map === 'string' ? raw.map : null),
+                gamemode: raw.gamemode || null,
+                plugins,
+                mods,
+                detectedTps,
+                pingMs: apiLatencyMs,
+                debugInfo: {
+                    ping: raw.debug?.ping ?? online,
+                    query: raw.debug?.query ?? false,
+                    srv: raw.debug?.srv ?? false,
+                    cacheTime: raw.debug?.cachetime || null
+                }
+            };
+        }
+
+        function normalizeMcstatusIoData(raw, server, apiLatencyMs) {
+            const online = Boolean(raw.online);
+            let playerList = [];
+            if (raw.players && Array.isArray(raw.players.list)) {
+                playerList = raw.players.list.map(p => ({
+                    name: p.name_clean || p.name_raw || 'Unknown',
+                    uuid: p.uuid || null
+                }));
+            }
+            const motdHtml = raw.motd && raw.motd.html
+                ? raw.motd.html
+                : escapeHTML(raw.motd?.clean || 'MOTDなし').replace(/\n/g, '<br>');
+            const motdClean = raw.motd?.clean || '';
+
+            return {
+                online,
+                hostname: raw.host || server.address,
+                ip: raw.ip_address || '非公開',
+                port: raw.port || (server.edition === 'bedrock' ? 19132 : 25565),
+                version: raw.version?.name_clean || raw.version?.name || '不明',
+                protocol: raw.version?.protocol ? String(raw.version.protocol) : '不明',
+                software: raw.software || null,
+                icon: raw.icon || DEFAULT_ICON_SVG,
+                playersOnline: raw.players?.online ?? 0,
+                playersMax: raw.players?.max ?? 0,
+                playerList,
+                motdHtml,
+                motdClean,
+                map: null,
+                gamemode: raw.gamemode || null,
+                plugins: Array.isArray(raw.plugins) ? raw.plugins.map(p => p.name) : [],
+                mods: Array.isArray(raw.mods) ? raw.mods.map(m => m.name) : [],
+                detectedTps: extractTpsFromText(motdClean),
+                pingMs: apiLatencyMs,
+                debugInfo: {
+                    ping: online,
+                    query: false,
+                    srv: Boolean(raw.srv_record),
+                    cacheTime: null
+                }
+            };
+        }
+
+        function extractTpsFromText(text) {
+            if (!text) return null;
+            const match = text.match(/TPS[:\s=]*([0-9]{1,2}(?:\.[0-9]{1,2})?)/i);
+            if (match && match[1]) {
+                const val = parseFloat(match[1]);
+                if (val >= 0 && val <= 20.5) return val;
+            }
+            return null;
+        }
+
+        async function refreshAllServers() {
+            if (savedServers.length === 0) return;
+            const icon = document.getElementById('refresh-all-icon');
+            icon.classList.add('animate-spin');
+            await Promise.all(savedServers.map(s => fetchServerStatus(s)));
+            icon.classList.remove('animate-spin');
+            showToast('全サーバーの最新ステータスを更新しました');
+        }
+
+        // ==========================================
+        // サーバー追加・選択・並べ替え・削除
+        // ==========================================
+        function handleAddServer(event) {
+            event.preventDefault();
+            const addrInput = document.getElementById('add-address-input');
+            const editionSelect = document.getElementById('add-edition-select');
+            const labelInput = document.getElementById('add-label-input');
+
+            const address = addrInput.value.trim();
+            if (!address) return;
+
+            addServerInternal(address, editionSelect.value, labelInput.value.trim());
+
+            addrInput.value = '';
+            labelInput.value = '';
+        }
+
+        function quickAddPreset(address, edition, label) {
+            addServerInternal(address, edition, label);
+        }
+
+        function addServerInternal(address, edition, label) {
+            const existing = savedServers.find(
+                s => s.address.toLowerCase() === address.toLowerCase() && s.edition === edition
+            );
+            if (existing) {
+                selectedServerId = existing.id;
+                playerSearchQuery = '';
+                currentPlayerPage = 1;
+                fetchServerStatus(existing);
+                showToast(`「${address}」は既に登録済みのため最新情報を取得します`);
+                return;
+            }
+
+            const newServer = {
+                id: 'srv_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
+                address,
+                edition,
+                label
+            };
+
+            savedServers.unshift(newServer);
+            selectedServerId = newServer.id;
+            playerSearchQuery = '';
+            currentPlayerPage = 1;
+
+            persistServers();
+            renderServerList();
+            renderDetailPanel();
+            fetchServerStatus(newServer);
+            showToast(`「${address}」を追加してCookieに保存しました`);
+        }
+
+        function selectServer(id) {
+            selectedServerId = id;
+            playerSearchQuery = '';
+            currentPlayerPage = 1;
+            renderServerList();
+            renderDetailPanel();
+
+            if (window.innerWidth < 1024) {
+                document.getElementById('detail-panel-wrapper').scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+        }
+
+        function moveServer(event, id, direction) {
+            event.stopPropagation();
+            const idx = savedServers.findIndex(s => s.id === id);
+            if (idx === -1) return;
+            const targetIdx = idx + direction;
+            if (targetIdx < 0 || targetIdx >= savedServers.length) return;
+
+            const temp = savedServers[idx];
+            savedServers[idx] = savedServers[targetIdx];
+            savedServers[targetIdx] = temp;
+
+            persistServers();
+            renderServerList();
+        }
+
+        function promptDeleteServer(event, id) {
+            event.stopPropagation();
+            const srv = savedServers.find(s => s.id === id);
+            if (!srv) return;
+            pendingDeleteId = id;
+            document.getElementById('delete-modal-target').textContent = `${srv.label ? srv.label + ' — ' : ''}${srv.address}`;
+            const modal = document.getElementById('delete-modal');
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        }
+
+        function closeDeleteModal() {
+            pendingDeleteId = null;
+            const modal = document.getElementById('delete-modal');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+        }
+
+        function confirmDeleteServer() {
+            if (!pendingDeleteId) return;
+            savedServers = savedServers.filter(s => s.id !== pendingDeleteId);
+            delete statusCache[pendingDeleteId];
+
+            if (selectedServerId === pendingDeleteId) {
+                selectedServerId = savedServers.length > 0 ? savedServers[0].id : null;
+            }
+
+            persistServers();
+            renderServerList();
+            renderDetailPanel();
+            closeDeleteModal();
+            showToast('サーバーを削除しました');
+        }
+
+        // ==========================================
+        // 左カラム: サーバーリスト描画
+        // ==========================================
+        function renderServerList() {
+            const container = document.getElementById('server-count-badge');
+            container.textContent = savedServers.length;
+
+            const listEl = document.getElementById('server-list-container');
+            if (savedServers.length === 0) {
+                listEl.innerHTML = `
+                    <div class="bg-white/70 dark:bg-bg-surface/60 border border-dashed border-slate-300 dark:border-bg-border rounded-2xl p-8 text-center space-y-2">
+                        <i class="fa-solid fa-server text-2xl text-slate-400 dark:text-slate-600"></i>
+                        <p class="text-sm font-bold text-slate-700 dark:text-slate-300">監視中のサーバーがありません</p>
+                        <p class="text-xs text-slate-500">上のフォームにサーバーアドレスを入力して追加してください</p>
+                    </div>
+                `;
+                return;
+            }
+
+            listEl.innerHTML = savedServers.map((srv, index) => {
+                const state = statusCache[srv.id] || { loading: true, data: null, error: null };
+                const data = state.data;
+                const isSelected = srv.id === selectedServerId;
+
+                const iconSrc = data?.icon || DEFAULT_ICON_SVG;
+                const title = srv.label || srv.address;
+                const editionLabel = srv.edition === 'bedrock' ? 'BE' : (srv.edition === 'multi' ? 'JE+BE' : 'JE');
+
+                let statusBadge = '';
+                let playerCountHtml = '';
+                let subInfoHtml = '';
+
+                if (state.loading && !data) {
+                    statusBadge = `<span class="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full bg-sky-500/15 text-sky-600 dark:text-sky-400 border border-sky-500/30"><i class="fa-solid fa-spinner animate-spin"></i> 取得中</span>`;
+                    playerCountHtml = `<span class="text-xs font-mono text-slate-400 dark:text-slate-500">-- / --</span>`;
+                    subInfoHtml = `<span class="text-[11px] text-slate-400 dark:text-slate-500">サーバーへ問い合わせています...</span>`;
+                } else if (data && data.online) {
+                    statusBadge = `<span class="inline-flex items-center gap-1.5 text-[11px] font-bold px-2 py-0.5 rounded-full bg-mc-emerald/15 text-emerald-700 dark:text-mc-emerald border border-mc-emerald/30"><span class="w-1.5 h-1.5 rounded-full bg-mc-emerald animate-pulse"></span>ONLINE</span>`;
+                    playerCountHtml = `
+                        <div class="text-right">
+                            <span class="text-sm font-extrabold font-mono text-slate-900 dark:text-white">${data.playersOnline.toLocaleString()}</span>
+                            <span class="text-xs font-mono text-slate-400 dark:text-slate-500">/${data.playersMax.toLocaleString()}</span>
+                        </div>
+                    `;
+                    subInfoHtml = `
+                        <span class="truncate text-[11px] font-mono text-slate-500 dark:text-slate-400">${escapeHTML(data.version)}</span>
+                        <span class="text-[11px] font-mono text-emerald-600 dark:text-emerald-400/90 shrink-0">${data.pingMs}ms</span>
+                    `;
+                } else {
+                    statusBadge = `<span class="inline-flex items-center gap-1.5 text-[11px] font-bold px-2 py-0.5 rounded-full bg-red-500/15 text-red-600 dark:text-red-400 border border-red-500/30"><span class="w-1.5 h-1.5 rounded-full bg-red-500"></span>OFFLINE</span>`;
+                    playerCountHtml = `<span class="text-xs font-mono text-slate-400 dark:text-slate-600">0 / 0</span>`;
+                    subInfoHtml = `<span class="text-[11px] text-red-500 dark:text-red-400/80 truncate">${state.error ? '接続エラー' : 'オフラインまたは応答なし'}</span>`;
+                }
+
+                const activeBorder = isSelected
+                    ? 'border-mc-emerald bg-emerald-50/40 dark:bg-bg-elevated/90 ring-1 ring-mc-emerald/40 shadow-lg shadow-emerald-950/10'
+                    : 'border-slate-200 dark:border-bg-border bg-white dark:bg-bg-surface hover:bg-slate-50 dark:hover:bg-bg-elevated/60 hover:border-slate-300 dark:hover:border-slate-600';
+
+                return `
+                    <div onclick="selectServer('${srv.id}')" class="rounded-2xl border p-3.5 transition cursor-pointer select-none ${activeBorder}">
+                        <div class="flex items-center gap-3">
+                            <img src="${iconSrc}" onerror="this.src='${DEFAULT_ICON_SVG}'" alt="icon"
+                                class="w-12 h-12 rounded-xl bg-slate-100 dark:bg-bg-base border border-slate-200 dark:border-bg-border pixelated object-cover shrink-0">
+
+                            <div class="min-w-0 flex-1 space-y-1">
+                                <div class="flex items-center justify-between gap-2">
+                                    <div class="flex items-center gap-1.5 min-w-0">
+                                        <span class="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-slate-100 dark:bg-bg-base text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-bg-border shrink-0">${editionLabel}</span>
+                                        <h4 class="font-bold text-sm text-slate-900 dark:text-white truncate">${escapeHTML(title)}</h4>
+                                    </div>
+                                    ${statusBadge}
+                                </div>
+
+                                <div class="flex items-center justify-between gap-2">
+                                    <code class="text-xs font-mono text-slate-500 dark:text-slate-400 truncate">${escapeHTML(srv.address)}</code>
+                                    ${playerCountHtml}
+                                </div>
+
+                                <div class="flex items-center justify-between gap-2 pt-0.5">
+                                    ${subInfoHtml}
+                                </div>
+                            </div>
+
+                            <div class="flex flex-col items-center gap-1 pl-1 border-l border-slate-200 dark:border-bg-border/60 shrink-0">
+                                <button type="button" onclick="moveServer(event, '${srv.id}', -1)" ${index === 0 ? 'disabled' : ''} class="p-1 text-slate-400 dark:text-slate-500 hover:text-slate-800 dark:hover:text-white disabled:opacity-25 cursor-pointer" title="上へ移動">
+                                    <i class="fa-solid fa-chevron-up text-[10px]"></i>
+                                </button>
+                                <button type="button" onclick="promptDeleteServer(event, '${srv.id}')" class="p-1 text-slate-400 dark:text-slate-500 hover:text-red-500 dark:hover:text-red-400 cursor-pointer" title="削除">
+                                    <i class="fa-solid fa-xmark text-xs"></i>
+                                </button>
+                                <button type="button" onclick="moveServer(event, '${srv.id}', 1)" ${index === savedServers.length - 1 ? 'disabled' : ''} class="p-1 text-slate-400 dark:text-slate-500 hover:text-slate-800 dark:hover:text-white disabled:opacity-25 cursor-pointer" title="下へ移動">
+                                    <i class="fa-solid fa-chevron-down text-[10px]"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // ==========================================
+        // 右カラム: サーバー詳細テレメトリ・プレイヤー・MOTD・TPS描画
+        // ==========================================
+        function renderDetailPanel() {
+            const wrapper = document.getElementById('detail-panel-wrapper');
+            const srv = savedServers.find(s => s.id === selectedServerId);
+
+            if (!srv) {
+                wrapper.innerHTML = `
+                    <div class="bg-white dark:bg-bg-surface border border-slate-200 dark:border-bg-border rounded-2xl p-10 text-center space-y-3">
+                        <div class="w-14 h-14 rounded-2xl bg-slate-100 dark:bg-bg-elevated border border-slate-200 dark:border-bg-border mx-auto flex items-center justify-center text-slate-400 dark:text-slate-500 text-2xl">
+                            <i class="fa-solid fa-hand-pointer"></i>
+                        </div>
+                        <h3 class="text-base font-bold text-slate-900 dark:text-white">サーバーを選択してください</h3>
+                        <p class="text-xs text-slate-500 dark:text-slate-400 max-w-md mx-auto">
+                            左のリストからサーバーをクリックすると、現在のオンライン人数・参加中のプレイヤー名・カラーMOTD・応答速度/TPS・サーバーソフトウェア詳細が表示されます。
+                        </p>
+                    </div>
+                `;
+                return;
+            }
+
+            const state = statusCache[srv.id] || { loading: true, data: null, error: null };
+            const data = state.data;
+
+            if (state.loading && !data) {
+                wrapper.innerHTML = `
+                    <div class="bg-white dark:bg-bg-surface border border-slate-200 dark:border-bg-border rounded-2xl p-12 text-center space-y-4">
+                        <i class="fa-solid fa-circle-notch animate-spin text-3xl text-mc-emerald"></i>
+                        <div>
+                            <h3 class="text-base font-bold text-slate-900 dark:text-white font-mono">${escapeHTML(srv.address)}</h3>
+                            <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">サーバーからリアルタイムステータス、MOTD、プレイヤーリストを取得しています...</p>
+                        </div>
+                    </div>
+                `;
+                return;
+            }
+
+            if (!data || !data.online) {
+                wrapper.innerHTML = `
+                    <div class="bg-white dark:bg-bg-surface border border-slate-200 dark:border-bg-border rounded-2xl p-6 space-y-5 shadow-xl">
+                        <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 dark:border-bg-border pb-4">
+                            <div class="flex items-center gap-3.5">
+                                <img src="${DEFAULT_ICON_SVG}" class="w-16 h-16 rounded-2xl bg-slate-100 dark:bg-bg-base border border-slate-200 dark:border-bg-border pixelated">
+                                <div>
+                                    <span class="inline-flex items-center gap-1.5 text-xs font-bold px-2.5 py-0.5 rounded-full bg-red-500/15 text-red-600 dark:text-red-400 border border-red-500/30 mb-1">
+                                        <span class="w-2 h-2 rounded-full bg-red-500"></span> OFFLINE / 応答なし
+                                    </span>
+                                    <h2 class="text-xl font-black text-slate-900 dark:text-white">${escapeHTML(srv.label || srv.address)}</h2>
+                                    <code class="text-xs font-mono text-slate-500 dark:text-slate-400">${escapeHTML(srv.address)}</code>
+                                </div>
+                            </div>
+                            <button type="button" onclick="fetchServerStatus(savedServers.find(s => s.id === '${srv.id}'))" class="px-3.5 py-2 rounded-xl bg-slate-100 dark:bg-bg-elevated hover:bg-slate-200 dark:hover:bg-slate-700 text-xs font-bold text-slate-800 dark:text-white border border-slate-200 dark:border-bg-border flex items-center gap-1.5 cursor-pointer">
+                                <i class="fa-solid fa-rotate ${state.loading ? 'animate-spin' : ''}"></i>
+                                <span>再試行</span>
+                            </button>
+                        </div>
+
+                        <div class="bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-900/40 rounded-xl p-4 text-xs text-red-700 dark:text-red-300 space-y-1.5">
+                            <p class="font-bold flex items-center gap-1.5"><i class="fa-solid fa-triangle-exclamation"></i> サーバーに接続できませんでした</p>
+                            <ul class="list-disc list-inside text-red-600 dark:text-red-300/80 space-y-1 pl-1">
+                                <li>サーバーが現在停止（オフライン）している可能性があります。</li>
+                                <li>アドレスのスペルミス、またはポート番号（例: <code class="font-mono">:25565</code>）の指定漏れがないか確認してください。</li>
+                                <li>Java版と統合版（Bedrock）の選択が正しいか確認してください。</li>
+                            </ul>
+                        </div>
+                    </div>
+                `;
+                return;
+            }
+
+            const updatedTimeStr = state.fetchedAt
+                ? `${String(state.fetchedAt.getHours()).padStart(2,'0')}:${String(state.fetchedAt.getMinutes()).padStart(2,'0')}:${String(state.fetchedAt.getSeconds()).padStart(2,'0')}`
+                : '--:--:--';
+
+            const fillPercent = data.playersMax > 0
+                ? Math.min(100, Math.round((data.playersOnline / data.playersMax) * 100))
+                : 0;
+
+            let tpsDisplayValue = '';
+            let tpsSubText = '';
+            let tpsBarPercent = 0;
+            let tpsColorClass = 'text-emerald-600 dark:text-mc-emerald';
+            let tpsBarColor = 'bg-mc-emerald';
+
+            if (data.detectedTps !== null) {
+                tpsDisplayValue = `${data.detectedTps.toFixed(1)} TPS`;
+                tpsBarPercent = Math.min(100, (data.detectedTps / 20) * 100);
+                if (data.detectedTps >= 18.5) {
+                    tpsColorClass = 'text-emerald-600 dark:text-mc-emerald';
+                    tpsBarColor = 'bg-mc-emerald';
+                    tpsSubText = 'サーバー応答情報から取得（快適）';
+                } else if (data.detectedTps >= 15.0) {
+                    tpsColorClass = 'text-amber-600 dark:text-amber-400';
+                    tpsBarColor = 'bg-amber-400';
+                    tpsSubText = 'サーバー応答情報から取得（やや負荷あり）';
+                } else {
+                    tpsColorClass = 'text-red-600 dark:text-red-400';
+                    tpsBarColor = 'bg-red-400';
+                    tpsSubText = 'サーバー応答情報から取得（高負荷）';
+                }
+            } else {
+                tpsDisplayValue = '非公開 (SLP非対応)';
+                tpsBarPercent = 100;
+                tpsColorClass = 'text-slate-700 dark:text-slate-300';
+                tpsBarColor = 'bg-slate-400 dark:bg-slate-600';
+                tpsSubText = 'マイクラ標準通信仕様では内部TPSは送信されません';
+            }
+
+            const pingColor = data.pingMs < 250
+                ? 'text-emerald-600 dark:text-mc-emerald'
+                : (data.pingMs < 600 ? 'text-amber-600 dark:text-amber-400' : 'text-red-600 dark:text-red-400');
+
+            const editionBadgeText = srv.edition === 'bedrock'
+                ? 'Bedrock (統合版)'
+                : (srv.edition === 'multi' ? 'マルチプレイ (Java + 統合版)' : 'Java Edition');
+
+            wrapper.innerHTML = `
+                <div class="bg-white dark:bg-bg-surface border border-slate-200 dark:border-bg-border rounded-2xl p-5 sm:p-6 space-y-6 shadow-xl dark:shadow-2xl transition-colors">
+                    
+                    <!-- 1. サーバーヘッダー情報 -->
+                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200 dark:border-bg-border pb-5">
+                        <div class="flex items-start sm:items-center gap-4 min-w-0">
+                            <img src="${data.icon}" onerror="this.src='${DEFAULT_ICON_SVG}'" alt="Server Icon"
+                                class="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-slate-100 dark:bg-bg-base border-2 border-slate-200 dark:border-bg-border pixelated shadow-md shrink-0">
+                            
+                            <div class="min-w-0 space-y-1.5">
+                                <div class="flex flex-wrap items-center gap-2">
+                                    <span class="inline-flex items-center gap-1.5 text-xs font-extrabold px-2.5 py-0.5 rounded-full bg-mc-emerald/15 text-emerald-700 dark:text-mc-emerald border border-mc-emerald/30">
+                                        <span class="w-2 h-2 rounded-full bg-mc-emerald animate-pulse"></span>
+                                        ONLINE
+                                    </span>
+                                    <span class="text-[11px] font-mono font-bold px-2 py-0.5 rounded-md bg-slate-100 dark:bg-bg-elevated text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-bg-border">
+                                        ${editionBadgeText}
+                                    </span>
+                                    ${data.software ? `<span class="text-[11px] font-mono font-bold px-2 py-0.5 rounded-md bg-sky-500/15 text-sky-700 dark:text-sky-300 border border-sky-500/30">${escapeHTML(data.software)}</span>` : ''}
+                                </div>
+
+                                <h2 class="text-xl sm:text-2xl font-black text-slate-900 dark:text-white truncate">
+                                    ${escapeHTML(srv.label || data.hostname)}
+                                </h2>
+
+                                <div class="flex flex-wrap items-center gap-2">
+                                    <code class="text-xs sm:text-sm font-mono text-emerald-700 dark:text-mc-emerald bg-slate-100 dark:bg-bg-base px-2.5 py-1 rounded-lg border border-slate-200 dark:border-bg-border">
+                                        ${escapeHTML(srv.address)}
+                                    </code>
+                                    <button type="button" onclick="copyText('${escapeAttr(srv.address)}')" class="text-xs px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-bg-elevated hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-bg-border transition cursor-pointer flex items-center gap-1">
+                                        <i class="fa-regular fa-copy"></i>
+                                        <span>コピー</span>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 更新ボタン & 自動更新トグル -->
+                        <div class="flex sm:flex-col items-center sm:items-end justify-between gap-2 shrink-0">
+                            <button type="button" onclick="fetchServerStatus(savedServers.find(s => s.id === '${srv.id}'))"
+                                class="px-3.5 py-2 rounded-xl bg-mc-emerald hover:bg-emerald-400 text-slate-950 font-extrabold text-xs transition flex items-center gap-1.5 cursor-pointer">
+                                <i class="fa-solid fa-rotate ${state.loading ? 'animate-spin' : ''}"></i>
+                                <span>最新情報を取得</span>
+                            </button>
+                            <div class="flex items-center gap-2 text-[11px] text-slate-500 dark:text-slate-400">
+                                <span>更新: ${updatedTimeStr}</span>
+                                <button type="button" onclick="toggleAutoRefresh()" class="px-2 py-0.5 rounded border text-[10px] font-bold cursor-pointer transition ${autoRefreshEnabled ? 'bg-sky-500/20 border-sky-500/40 text-sky-700 dark:text-sky-300' : 'bg-slate-100 dark:bg-bg-base border-slate-200 dark:border-bg-border text-slate-500 dark:text-slate-400'}">
+                                    ${autoRefreshEnabled ? '自動更新ON (30s)' : '自動更新OFF'}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    ${data.isMulti && data.multiDetails ? `
+                        <!-- マルチプレイ (Java + 統合版) 個別ステータスバー -->
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-xs">
+                            <div class="bg-slate-50 dark:bg-bg-base border border-slate-200 dark:border-bg-border rounded-xl p-3 flex items-center justify-between">
+                                <div class="flex items-center gap-2">
+                                    <span class="px-2 py-0.5 rounded bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 font-mono font-bold text-[11px]">Java版</span>
+                                    <span class="font-mono text-slate-700 dark:text-slate-300 truncate max-w-[140px]">${data.multiDetails.java?.online ? escapeHTML(data.multiDetails.java.version) : 'オフライン/未応答'}</span>
+                                </div>
+                                <span class="font-mono font-bold ${data.multiDetails.java?.online ? 'text-emerald-600 dark:text-mc-emerald' : 'text-slate-400 dark:text-slate-500'}">
+                                    ${data.multiDetails.java?.online ? `${data.multiDetails.java.playersOnline}人 (Port:${data.multiDetails.java.port})` : 'OFFLINE'}
+                                </span>
+                            </div>
+                            <div class="bg-slate-50 dark:bg-bg-base border border-slate-200 dark:border-bg-border rounded-xl p-3 flex items-center justify-between">
+                                <div class="flex items-center gap-2">
+                                    <span class="px-2 py-0.5 rounded bg-sky-500/15 text-sky-700 dark:text-sky-400 font-mono font-bold text-[11px]">統合版 (BE)</span>
+                                    <span class="font-mono text-slate-700 dark:text-slate-300 truncate max-w-[140px]">${data.multiDetails.bedrock?.online ? escapeHTML(data.multiDetails.bedrock.version) : 'オフライン/未応答'}</span>
+                                </div>
+                                <span class="font-mono font-bold ${data.multiDetails.bedrock?.online ? 'text-sky-600 dark:text-sky-400' : 'text-slate-400 dark:text-slate-500'}">
+                                    ${data.multiDetails.bedrock?.online ? `${data.multiDetails.bedrock.playersOnline}人 (Port:${data.multiDetails.bedrock.port})` : 'OFFLINE'}
+                                </span>
+                            </div>
+                        </div>
+                    ` : ''}
+
+                    <!-- 2. 主要メトリクスグリッド (参加人数 / TPS / API応答時間) -->
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
+                        <!-- 参加人数 -->
+                        <div class="bg-slate-50 dark:bg-bg-base border border-slate-200 dark:border-bg-border rounded-xl p-3.5 space-y-2">
+                            <div class="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
+                                <span class="font-bold flex items-center gap-1.5"><i class="fa-solid fa-users text-mc-emerald"></i> 参加人数</span>
+                                <span class="font-mono text-[11px]">${fillPercent}%</span>
+                            </div>
+                            <div class="flex items-baseline gap-1.5">
+                                <span class="text-2xl font-black font-mono text-slate-900 dark:text-white">${data.playersOnline.toLocaleString()}</span>
+                                <span class="text-xs font-mono text-slate-400 dark:text-slate-500">/ ${data.playersMax.toLocaleString()} 人</span>
+                            </div>
+                            <div class="w-full h-1.5 bg-slate-200 dark:bg-bg-elevated rounded-full overflow-hidden">
+                                <div class="h-full bg-mc-emerald rounded-full transition-all duration-500" style="width: ${fillPercent}%"></div>
+                            </div>
+                        </div>
+
+                        <!-- TPS & パフォーマンス -->
+                        <div class="bg-slate-50 dark:bg-bg-base border border-slate-200 dark:border-bg-border rounded-xl p-3.5 space-y-2">
+                            <div class="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
+                                <span class="font-bold flex items-center gap-1.5">
+                                    <i class="fa-solid fa-gauge-high text-sky-500 dark:text-sky-400"></i> サーバー TPS
+                                </span>
+                                <span class="text-[10px] text-slate-400 underline decoration-dotted cursor-help" title="Minecraft標準のServer List Ping(SLP)通信には内部の処理速度(TPS)が含まれない仕様のため、サーバー側がMOTDやプラグインで公開していない限り「非公開」となります。">
+                                    なぜ非公開？
+                                </span>
+                            </div>
+                            <div class="text-base sm:text-lg font-black font-mono ${tpsColorClass} truncate">
+                                ${tpsDisplayValue}
+                            </div>
+                            <div class="w-full h-1.5 bg-slate-200 dark:bg-bg-elevated rounded-full overflow-hidden">
+                                <div class="h-full ${tpsBarColor} rounded-full transition-all duration-500" style="width: ${tpsBarPercent}%"></div>
+                            </div>
+                            <p class="text-[10px] text-slate-500 dark:text-slate-400 leading-tight">${tpsSubText}</p>
+                        </div>
+
+                        <!-- API応答時間 & バージョン -->
+                        <div class="bg-slate-50 dark:bg-bg-base border border-slate-200 dark:border-bg-border rounded-xl p-3.5 space-y-2">
+                            <div class="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
+                                <span class="font-bold flex items-center gap-1.5">
+                                    <i class="fa-solid fa-signal text-amber-500 dark:text-amber-400"></i> API応答時間
+                                </span>
+                                <span class="text-[10px] text-slate-400 underline decoration-dotted cursor-help" title="ブラウザから外部ステータスAPIを経由して対象マイクラサーバーへ問い合わせを行い、結果が返ってくるまでの合計通信時間（ミリ秒）です。">
+                                    API応答とは？
+                                </span>
+                            </div>
+                            <div class="flex items-baseline justify-between gap-2">
+                                <span class="text-xl font-black font-mono ${pingColor}">${data.pingMs} <span class="text-xs font-normal">ms</span></span>
+                                <span class="text-xs font-mono font-bold text-slate-700 dark:text-slate-200 truncate max-w-[130px]" title="${escapeHTML(data.version)}">${escapeHTML(data.version)}</span>
+                            </div>
+                            <div class="text-[10px] text-slate-500 dark:text-slate-400 leading-tight truncate">
+                                外部API経由の取得レイテンシ / Proto: ${escapeHTML(data.protocol)}
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 3. MOTD (Message of the Day) マイクラカラー再現表示 -->
+                    <div class="space-y-2">
+                        <div class="flex items-center justify-between">
+                            <h3 class="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
+                                <i class="fa-solid fa-message text-mc-emerald"></i>
+                                <span>MOTD（サーバーメッセージ）</span>
+                            </h3>
+                        </div>
+                        <div class="mc-motd-box border border-slate-300 dark:border-bg-border rounded-xl p-4 text-xs sm:text-sm overflow-x-auto text-slate-200">
+                            ${data.motdHtml}
+                        </div>
+                    </div>
+
+                    <!-- 4. 現在ログイン中のプレイヤー一覧 -->
+                    <div class="space-y-3">
+                        <div class="flex flex-wrap items-center justify-between gap-2">
+                            <h3 class="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-2">
+                                <i class="fa-solid fa-user-group text-mc-emerald"></i>
+                                <span>現在参加しているユーザー</span>
+                                <span id="player-count-pill" class="px-2 py-0.5 rounded-full bg-mc-emerald/15 text-emerald-700 dark:text-mc-emerald font-mono">
+                                    ${data.playerList.length > 0 ? `${data.playerList.length}名取得済` : `${data.playersOnline}名オンライン`}
+                                </span>
+                            </h3>
+
+                            ${data.playerList.length > 0 ? `
+                                <div class="relative w-full sm:w-64">
+                                    <i class="fa-solid fa-magnifying-glass text-slate-400 dark:text-slate-500 text-xs absolute left-3 top-1/2 -translate-y-1/2"></i>
+                                    <input type="text" id="player-search-input" value="${escapeAttr(playerSearchQuery)}"
+                                        oninput="handlePlayerSearch(this.value)"
+                                        placeholder="プレイヤー名で検索..."
+                                        class="w-full bg-slate-50 dark:bg-bg-base border border-slate-300 dark:border-bg-border focus:border-mc-emerald rounded-lg pl-8 pr-8 py-1.5 text-xs text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 outline-none">
+                                    <button type="button" id="player-search-clear" onclick="clearPlayerSearch()"
+                                        class="${playerSearchQuery ? '' : 'hidden'} absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-800 dark:hover:text-white text-xs cursor-pointer">
+                                        <i class="fa-solid fa-xmark"></i>
+                                    </button>
+                                </div>
+                            ` : ''}
+                        </div>
+
+                        <div id="players-list-area">
+                            ${buildPlayersAreaHTML(data)}
+                        </div>
+                    </div>
+
+                    <!-- 5. ネットワーク・技術詳細 -->
+                    <div class="pt-4 border-t border-slate-200 dark:border-bg-border space-y-3">
+                        <h3 class="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
+                            <i class="fa-solid fa-network-wired text-slate-400"></i>
+                            <span>サーバーネットワーク・技術情報</span>
+                        </h3>
+                        <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5 text-xs">
+                            <div class="bg-slate-50 dark:bg-bg-base border border-slate-200 dark:border-bg-border rounded-xl p-2.5">
+                                <div class="text-[10px] text-slate-400 dark:text-slate-500">解決IPアドレス</div>
+                                <div class="font-mono text-slate-800 dark:text-slate-200 truncate mt-0.5">${escapeHTML(data.ip)}</div>
+                            </div>
+                            <div class="bg-slate-50 dark:bg-bg-base border border-slate-200 dark:border-bg-border rounded-xl p-2.5">
+                                <div class="text-[10px] text-slate-400 dark:text-slate-500">ポート番号</div>
+                                <div class="font-mono text-slate-800 dark:text-slate-200 mt-0.5">${escapeHTML(String(data.port))}</div>
+                            </div>
+                            <div class="bg-slate-50 dark:bg-bg-base border border-slate-200 dark:border-bg-border rounded-xl p-2.5">
+                                <div class="text-[10px] text-slate-400 dark:text-slate-500">SRVレコード / Query</div>
+                                <div class="font-mono text-slate-800 dark:text-slate-200 mt-0.5">
+                                    SRV: ${data.debugInfo.srv ? 'あり' : 'なし'} / Query: ${data.debugInfo.query ? '有効' : '無効'}
+                                </div>
+                            </div>
+                            <div class="bg-slate-50 dark:bg-bg-base border border-slate-200 dark:border-bg-border rounded-xl p-2.5">
+                                <div class="text-[10px] text-slate-400 dark:text-slate-500">ワールド / モード</div>
+                                <div class="font-mono text-slate-800 dark:text-slate-200 truncate mt-0.5">
+                                    ${escapeHTML(data.map || data.gamemode || '標準')}
+                                </div>
+                            </div>
+                        </div>
+
+                        ${data.plugins.length > 0 ? `
+                            <div class="bg-slate-50 dark:bg-bg-base border border-slate-200 dark:border-bg-border rounded-xl p-3 space-y-1.5">
+                                <div class="text-[11px] font-bold text-slate-700 dark:text-slate-300">公開プラグイン (${data.plugins.length})</div>
+                                <div class="flex flex-wrap gap-1.5 max-h-24 overflow-y-auto">
+                                    ${data.plugins.map(pl => `<span class="text-[11px] font-mono px-2 py-0.5 rounded bg-white dark:bg-bg-elevated text-sky-700 dark:text-sky-300 border border-slate-200 dark:border-bg-border">${escapeHTML(pl)}</span>`).join('')}
+                                </div>
+                            </div>
+                        ` : ''}
+
+                        ${data.mods.length > 0 ? `
+                            <div class="bg-slate-50 dark:bg-bg-base border border-slate-200 dark:border-bg-border rounded-xl p-3 space-y-1.5">
+                                <div class="text-[11px] font-bold text-slate-700 dark:text-slate-300">導入MOD (${data.mods.length})</div>
+                                <div class="flex flex-wrap gap-1.5 max-h-24 overflow-y-auto">
+                                    ${data.mods.map(m => `<span class="text-[11px] font-mono px-2 py-0.5 rounded bg-white dark:bg-bg-elevated text-amber-700 dark:text-amber-300 border border-slate-200 dark:border-bg-border">${escapeHTML(m)}</span>`).join('')}
+                                </div>
+                            </div>
+                        ` : ''}
+                    </div>
+                </div>
+            `;
+
+            hydrateOfficialPlayerHeads();
+        }
+
+        function buildPlayersAreaHTML(data) {
+            if (data.playersOnline === 0) {
+                return `
+                    <div class="bg-slate-50 dark:bg-bg-base/70 border border-slate-200 dark:border-bg-border rounded-xl p-6 text-center text-xs text-slate-500 dark:text-slate-400">
+                        現在このサーバーにログインしているプレイヤーは 0 人です。
+                    </div>
+                `;
+            }
+
+            if (data.playerList.length === 0) {
+                return `
+                    <div class="bg-amber-50 dark:bg-bg-base/70 border border-amber-200 dark:border-bg-border rounded-xl p-4 flex items-start gap-3 text-xs">
+                        <i class="fa-solid fa-eye-slash text-amber-500 dark:text-amber-400 text-base mt-0.5"></i>
+                        <div class="space-y-1">
+                            <p class="font-bold text-slate-800 dark:text-slate-200">現在 ${data.playersOnline.toLocaleString()} 人がオンラインですが、個別のプレイヤー名はサーバー側で非公開に設定されています</p>
+                            <p class="text-slate-500 dark:text-slate-400">大規模ネットワークや <code class="font-mono text-slate-700 dark:text-slate-300">hide-online-players=true</code> 設定のサーバーでは、人数のみが公開されます。</p>
+                        </div>
+                    </div>
+                `;
+            }
+
+            const filtered = data.playerList.filter(p =>
+                p.name.toLowerCase().includes(playerSearchQuery.toLowerCase())
+            );
+
+            if (filtered.length === 0) {
+                return `
+                    <div class="bg-slate-50 dark:bg-bg-base/70 border border-slate-200 dark:border-bg-border rounded-xl p-6 text-center text-xs text-slate-500 dark:text-slate-400">
+                        「${escapeHTML(playerSearchQuery)}」に一致するプレイヤーが見つかりません。
+                    </div>
+                `;
+            }
+
+            const totalItems = filtered.length;
+            const totalPages = Math.max(1, Math.ceil(totalItems / PLAYERS_PER_PAGE));
+            if (currentPlayerPage > totalPages) currentPlayerPage = totalPages;
+            if (currentPlayerPage < 1) currentPlayerPage = 1;
+
+            const startIdx = (currentPlayerPage - 1) * PLAYERS_PER_PAGE;
+            const endIdx = Math.min(startIdx + PLAYERS_PER_PAGE, totalItems);
+            const pagePlayers = filtered.slice(startIdx, endIdx);
+
+            const remainingServerHidden = data.playersOnline - data.playerList.length;
+
+            let paginationHtml = '';
+            if (totalPages > 1) {
+                const pageButtons = getPaginationRange(currentPlayerPage, totalPages).map(item => {
+                    if (item === '...') {
+                        return `<span class="px-2 py-1 text-xs text-slate-400 dark:text-slate-500">...</span>`;
+                    }
+                    const isCurrent = item === currentPlayerPage;
+                    return `
+                        <button type="button" onclick="changePlayerPage(${item})"
+                            class="min-w-[32px] h-8 px-2 rounded-lg text-xs font-mono font-bold transition cursor-pointer ${
+                                isCurrent
+                                    ? 'bg-mc-emerald text-slate-950 shadow-sm'
+                                    : 'bg-slate-100 dark:bg-bg-base hover:bg-slate-200 dark:hover:bg-bg-elevated text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-bg-border'
+                            }">
+                            ${item}
+                        </button>
+                    `;
+                }).join('');
+
+                paginationHtml = `
+                    <div class="flex flex-wrap items-center justify-between gap-2 pt-3 border-t border-slate-200 dark:border-bg-border/60">
+                        <div class="text-[11px] font-mono text-slate-500 dark:text-slate-400">
+                            ${(startIdx + 1).toLocaleString()} - ${endIdx.toLocaleString()}人目を表示中（全 ${totalItems.toLocaleString()}人 / 1ページ50人）
+                        </div>
+                        <div class="flex items-center gap-1">
+                            <button type="button" onclick="changePlayerPage(${currentPlayerPage - 1})" ${currentPlayerPage === 1 ? 'disabled' : ''}
+                                class="px-2.5 h-8 rounded-lg text-xs font-bold bg-slate-100 dark:bg-bg-base hover:bg-slate-200 dark:hover:bg-bg-elevated text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-bg-border disabled:opacity-30 disabled:pointer-events-none cursor-pointer">
+                                <i class="fa-solid fa-chevron-left mr-1"></i>前へ
+                            </button>
+                            ${pageButtons}
+                            <button type="button" onclick="changePlayerPage(${currentPlayerPage + 1})" ${currentPlayerPage === totalPages ? 'disabled' : ''}
+                                class="px-2.5 h-8 rounded-lg text-xs font-bold bg-slate-100 dark:bg-bg-base hover:bg-slate-200 dark:hover:bg-bg-elevated text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-bg-border disabled:opacity-30 disabled:pointer-events-none cursor-pointer">
+                                次へ<i class="fa-solid fa-chevron-right ml-1"></i>
+                            </button>
+                        </div>
+                    </div>
+                `;
+            } else {
+                paginationHtml = `
+                    <div class="flex items-center justify-between pt-2 text-[11px] font-mono text-slate-500 dark:text-slate-400">
+                        <span>全 ${totalItems.toLocaleString()}人を表示中（1ページ最大50人）</span>
+                        <span class="text-slate-400 dark:text-slate-500">Mojang公式テクスチャAPI描画</span>
+                    </div>
+                `;
+            }
+
+            return `
+                <div class="space-y-3">
+                    <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+                        ${pagePlayers.map(player => {
+                            const safeName = escapeHTML(player.name);
+                            const safeUuid = escapeAttr(player.uuid || '');
+                            const safeNameAttr = escapeAttr(player.name);
+                            const isBedrockUser = player.platform === 'bedrock' || player.name.startsWith('.');
+                            return `
+                                <div onclick="copyText('${safeNameAttr}')" title="クリックでMCIDをコピー${player.uuid ? ' (UUID: ' + player.uuid + ')' : ''}"
+                                    class="flex items-center gap-2.5 p-2 rounded-xl bg-slate-50 dark:bg-bg-base hover:bg-slate-100 dark:hover:bg-bg-elevated border border-slate-200 dark:border-bg-border hover:border-mc-emerald/50 transition cursor-pointer group">
+                                    <canvas data-mc-head="true" data-username="${safeNameAttr}" data-uuid="${safeUuid}" data-bedrock="${isBedrockUser}"
+                                        width="32" height="32"
+                                        class="w-7 h-7 rounded-md bg-slate-200 dark:bg-bg-elevated pixelated shrink-0 border border-slate-300/60 dark:border-bg-border/50"></canvas>
+                                    <div class="min-w-0 flex-1">
+                                        <div class="text-xs font-mono font-semibold text-slate-800 dark:text-slate-200 group-hover:text-slate-950 dark:group-hover:text-white truncate">
+                                            ${safeName}
+                                        </div>
+                                        ${isBedrockUser ? `<div class="text-[9px] font-mono text-sky-600 dark:text-sky-400 leading-none mt-0.5">BE</div>` : ''}
+                                    </div>
+                                </div>
+                            `;
+                        }).join('')}
+                    </div>
+
+                    ${paginationHtml}
+
+                    ${remainingServerHidden > 0 ? `
+                        <p class="text-[11px] text-amber-700 dark:text-amber-400/90 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/30 rounded-lg px-3 py-2">
+                            <i class="fa-solid fa-circle-info mr-1"></i>
+                            サーバー本体が外部応答（SLPサンプル）で返すプレイヤー名の上限仕様により、他 ${remainingServerHidden.toLocaleString()} 人の個別名はサーバーから送信されていません。取得できた全員（${data.playerList.length}名）をすべて表示しています。
+                        </p>
+                    ` : ''}
+                </div>
+            `;
+        }
+
+        function getPaginationRange(current, total) {
+            if (total <= 7) {
+                return Array.from({ length: total }, (_, i) => i + 1);
+            }
+            if (current <= 4) {
+                return [1, 2, 3, 4, 5, '...', total];
+            }
+            if (current >= total - 3) {
+                return [1, '...', total - 4, total - 3, total - 2, total - 1, total];
+            }
+            return [1, '...', current - 1, current, current + 1, '...', total];
+        }
+
+        function handlePlayerSearch(val) {
+            playerSearchQuery = val;
+            currentPlayerPage = 1;
+
+            const clearBtn = document.getElementById('player-search-clear');
+            if (clearBtn) {
+                clearBtn.classList.toggle('hidden', !val);
+            }
+
+            updatePlayersAreaOnly();
+        }
+
+        function clearPlayerSearch() {
+            const input = document.getElementById('player-search-input');
+            if (input) {
+                input.value = '';
+                input.focus();
+            }
+            handlePlayerSearch('');
+        }
+
+        function changePlayerPage(page) {
+            currentPlayerPage = page;
+            updatePlayersAreaOnly();
+            const area = document.getElementById('players-list-area');
+            if (area) {
+                area.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            }
+        }
+
+        function updatePlayersAreaOnly() {
+            const srv = savedServers.find(s => s.id === selectedServerId);
+            if (!srv) return;
+            const state = statusCache[srv.id];
+            if (!state || !state.data) return;
+
+            const area = document.getElementById('players-list-area');
+            if (area) {
+                area.innerHTML = buildPlayersAreaHTML(state.data);
+                hydrateOfficialPlayerHeads();
+            }
+        }
+
+        // ==========================================
+        // Mojang公式API (SessionServer) からスキンPNGを取得しCanvasに顔(8x8+帽子)を描画
+        // ==========================================
+        async function hydrateOfficialPlayerHeads() {
+            const canvases = document.querySelectorAll('canvas[data-mc-head="true"]');
+            canvases.forEach(canvas => {
+                drawMojangOfficialHead(canvas);
             });
-            nav.appendChild(pageBtn);
-          }
-
-          const nextBtn = document.createElement("button");
-          nextBtn.type = "button";
-          nextBtn.textContent = "次へ";
-          nextBtn.disabled = currentPage >= totalPages;
-          nextBtn.addEventListener("click", () => {
-            if (currentPage < totalPages) {
-              currentPage += 1;
-              renderPlayersSectionOnly(serverId);
-            }
-          });
-          nav.appendChild(nextBtn);
-
-          container.appendChild(nav);
         }
-      }
-    })();
-  </script>
+
+        async function drawMojangOfficialHead(canvas) {
+            const username = canvas.dataset.username;
+            const uuid = canvas.dataset.uuid;
+            const isBedrock = canvas.dataset.bedrock === 'true';
+            const ctx = canvas.getContext('2d');
+            ctx.imageSmoothingEnabled = false;
+
+            drawDefaultSteveCanvas(ctx);
+
+            if (!username || isBedrock) {
+                loadFallbackAvatarToCanvas(ctx, username);
+                return;
+            }
+
+            try {
+                const skinTextureUrl = await resolveOfficialMojangSkinUrl(username, uuid);
+                if (skinTextureUrl) {
+                    const loaded = await renderSkinPngHeadToCanvas(ctx, skinTextureUrl);
+                    if (loaded) return;
+                }
+            } catch (e) {}
+
+            loadFallbackAvatarToCanvas(ctx, uuid || username);
+        }
+
+        async function resolveOfficialMojangSkinUrl(username, providedUuid) {
+            const cacheKey = (providedUuid || username).toLowerCase();
+            if (officialSkinCache.has(cacheKey)) {
+                return officialSkinCache.get(cacheKey);
+            }
+
+            let cleanUuid = providedUuid ? providedUuid.replace(/-/g, '') : null;
+
+            if (!cleanUuid) {
+                const profileRes = await fetchJsonWithCorsFallback(
+                    `https://api.mojang.com/users/profiles/minecraft/${encodeURIComponent(username)}`
+                );
+                if (profileRes && profileRes.id) {
+                    cleanUuid = profileRes.id.replace(/-/g, '');
+                }
+            }
+
+            if (!cleanUuid) {
+                officialSkinCache.set(cacheKey, null);
+                return null;
+            }
+
+            const sessionRes = await fetchJsonWithCorsFallback(
+                `https://sessionserver.mojang.com/session/minecraft/profile/${cleanUuid}`
+            );
+
+            if (sessionRes && Array.isArray(sessionRes.properties)) {
+                const texProp = sessionRes.properties.find(p => p.name === 'textures');
+                if (texProp && texProp.value) {
+                    const decodedJson = JSON.parse(atob(texProp.value));
+                    const skinUrl = decodedJson?.textures?.SKIN?.url || null;
+                    if (skinUrl) {
+                        const secureUrl = skinUrl.replace(/^http:\/\//i, 'https://');
+                        officialSkinCache.set(cacheKey, secureUrl);
+                        return secureUrl;
+                    }
+                }
+            }
+
+            officialSkinCache.set(cacheKey, null);
+            return null;
+        }
+
+        async function fetchJsonWithCorsFallback(targetUrl) {
+            try {
+                const direct = await fetch(targetUrl);
+                if (direct.ok) return await direct.json();
+            } catch (e) {}
+
+            try {
+                const proxied = await fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`);
+                if (proxied.ok) return await proxied.json();
+            } catch (e) {}
+
+            return null;
+        }
+
+        function renderSkinPngHeadToCanvas(ctx, skinUrl) {
+            return new Promise((resolve) => {
+                const img = new Image();
+                img.crossOrigin = 'Anonymous';
+                img.onload = () => {
+                    try {
+                        ctx.clearRect(0, 0, 32, 32);
+                        ctx.imageSmoothingEnabled = false;
+                        ctx.drawImage(img, 8, 8, 8, 8, 0, 0, 32, 32);
+                        ctx.drawImage(img, 40, 8, 8, 8, 0, 0, 32, 32);
+                        resolve(true);
+                    } catch (err) {
+                        resolve(false);
+                    }
+                };
+                img.onerror = () => resolve(false);
+                img.src = skinUrl;
+            });
+        }
+
+        function loadFallbackAvatarToCanvas(ctx, identifier) {
+            if (!identifier) return;
+            const img = new Image();
+            img.crossOrigin = 'Anonymous';
+            img.onload = () => {
+                ctx.clearRect(0, 0, 32, 32);
+                ctx.imageSmoothingEnabled = false;
+                ctx.drawImage(img, 0, 0, 32, 32);
+            };
+            img.src = `https://mc-heads.net/avatar/${encodeURIComponent(identifier)}/32`;
+        }
+
+        function drawDefaultSteveCanvas(ctx) {
+            ctx.fillStyle = '#b58d72';
+            ctx.fillRect(0, 0, 32, 32);
+            ctx.fillStyle = '#3b271a';
+            ctx.fillRect(0, 0, 32, 8);
+            ctx.fillRect(0, 8, 4, 4);
+            ctx.fillRect(28, 8, 4, 4);
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(4, 16, 4, 4);
+            ctx.fillRect(24, 16, 4, 4);
+            ctx.fillStyle = '#493896';
+            ctx.fillRect(8, 16, 4, 4);
+            ctx.fillRect(20, 16, 4, 4);
+            ctx.fillStyle = '#8c6249';
+            ctx.fillRect(12, 20, 8, 4);
+            ctx.fillStyle = '#5e3726';
+            ctx.fillRect(8, 24, 16, 4);
+        }
+
+        function toggleAutoRefresh() {
+            autoRefreshEnabled = !autoRefreshEnabled;
+            if (autoRefreshTimer) {
+                clearInterval(autoRefreshTimer);
+                autoRefreshTimer = null;
+            }
+            if (autoRefreshEnabled) {
+                autoRefreshTimer = setInterval(() => {
+                    const srv = savedServers.find(s => s.id === selectedServerId);
+                    if (srv) fetchServerStatus(srv);
+                }, 30000);
+                showToast('30秒ごとの自動更新を有効にしました');
+            } else {
+                showToast('自動更新をオフにしました');
+            }
+            renderDetailPanel();
+        }
+
+        // ==========================================
+        // ユーティリティ関数
+        // ==========================================
+        function escapeHTML(str) {
+            return String(str ?? '')
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
+        }
+
+        function escapeAttr(str) {
+            return String(str ?? '').replace(/'/g, "\\'").replace(/"/g, '&quot;');
+        }
+
+        function copyText(text) {
+            if (!text) return;
+            const input = document.createElement('input');
+            input.value = text;
+            document.body.appendChild(input);
+            input.select();
+            document.execCommand('copy');
+            document.body.removeChild(input);
+            showToast(`「${text}」をコピーしました`);
+        }
+
+        function showToast(message) {
+            const container = document.getElementById('toast-container');
+            const el = document.createElement('div');
+            el.className = 'toast-anim pointer-events-auto flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-900 dark:bg-bg-elevated border border-mc-emerald/50 text-white text-xs font-bold shadow-2xl';
+            el.innerHTML = `<i class="fa-solid fa-circle-check text-mc-emerald"></i><span>${escapeHTML(message)}</span>`;
+            container.appendChild(el);
+
+            setTimeout(() => {
+                el.style.opacity = '0';
+                el.style.transition = 'opacity 0.2s ease';
+                setTimeout(() => el.remove(), 220);
+            }, 2800);
+        }
+
+        // ==========================================
+        // 起動時初期化
+        // ==========================================
+        window.addEventListener('DOMContentLoaded', () => {
+            restoreTheme();
+            restoreServers();
+            renderServerList();
+            renderDetailPanel();
+
+            savedServers.forEach(srv => fetchServerStatus(srv));
+        });
+    </script>
 </body>
 </html>
