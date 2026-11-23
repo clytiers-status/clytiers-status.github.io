@@ -1,0 +1,1096 @@
+<!DOCTYPE html>
+<html lang="ja" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MC Server Status & Player Manager - マイクラ サーバーステータス管理</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts: Inter & Noto Sans JP & Press Start 2P -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Noto+Sans+JP:wght@400;500;700;900&family=Press+Start+2P&display=swap" rel="stylesheet">
+    <!-- Font Awesome for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['"Inter"', '"Noto Sans JP"', 'sans-serif'],
+                        pixel: ['"Press Start 2P"', 'monospace'],
+                    },
+                    colors: {
+                        mc: {
+                            obsidian: '#0d0f14',
+                            slate: '#161b24',
+                            card: '#1e2532',
+                            border: '#2e384d',
+                            emerald: '#10b981',
+                            emeraldDark: '#059669',
+                            grass: '#4ade80',
+                            gold: '#f59e0b',
+                            redstone: '#ef4444',
+                            diamond: '#38bdf8'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        /* カスタムスクロールバーとピクセル風微調整 */
+        body {
+            background-color: #0d0f14;
+            color: #f1f5f9;
+            background-image: 
+                radial-gradient(circle at 15% 50%, rgba(16, 185, 129, 0.06), transparent 25%),
+                radial-gradient(circle at 85% 30%, rgba(56, 189, 248, 0.06), transparent 25%);
+        }
+        .mc-shadow {
+            box-shadow: 0 4px 0 0 #090b0e;
+        }
+        .mc-btn {
+            transition: all 0.1s ease;
+            box-shadow: 0 3px 0 0 rgba(0, 0, 0, 0.45);
+        }
+        .mc-btn:active {
+            transform: translateY(2px);
+            box-shadow: 0 1px 0 0 rgba(0, 0, 0, 0.45);
+        }
+        .pixelated {
+            image-rendering: pixelated;
+        }
+        /* トースト通知アニメーション */
+        @keyframes slideIn {
+            from { transform: translateY(100%); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+        .toast-enter {
+            animation: slideIn 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col antialiased selection:bg-mc-emerald selection:text-white">
+
+    <!-- ヘッダー -->
+    <header class="sticky top-0 z-40 bg-mc-slate/90 backdrop-blur-md border-b border-mc-border">
+        <div class="max-w-6xl mx-auto px-4 sm:px-6 py-3.5 flex flex-wrap items-center justify-between gap-3">
+            <div class="flex items-center gap-3">
+                <!-- ブロック風ロゴアイコン -->
+                <div class="w-10 h-10 rounded-lg bg-gradient-to-b from-mc-grass via-mc-emerald to-amber-900 p-0.5 shadow-lg flex items-center justify-center shrink-0">
+                    <div class="w-full h-full bg-mc-obsidian/20 rounded-md flex items-center justify-center">
+                        <i class="fa-solid fa-cubes text-white text-lg drop-shadow"></i>
+                    </div>
+                </div>
+                <div>
+                    <h1 class="text-base sm:text-lg font-extrabold tracking-tight text-white flex items-center gap-2">
+                        <span>MC SERVER STATUS</span>
+                        <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-mc-emerald/20 text-mc-grass border border-mc-emerald/30">管理パネル</span>
+                    </h1>
+                    <p class="text-xs text-slate-400">サーバー状態確認 &amp; 参加プレイヤー名簿（Cookie自動保存対応）</p>
+                </div>
+            </div>
+
+            <!-- 自動保存ステータス & クイック操作 -->
+            <div class="flex items-center gap-2 sm:gap-3">
+                <div id="save-indicator" class="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg bg-mc-card border border-mc-border text-slate-300">
+                    <span class="w-2 h-2 rounded-full bg-mc-emerald animate-pulse"></span>
+                    <span id="save-text">Cookieに保存済み</span>
+                </div>
+                <button onclick="loadSampleData()" class="mc-btn text-xs font-bold px-3 py-2 rounded-lg bg-mc-card hover:bg-slate-700 text-mc-diamond border border-mc-border flex items-center gap-1.5" title="サンプルサーバーとプレイヤーを読み込みます">
+                    <i class="fa-solid fa-wand-magic-sparkles"></i>
+                    <span class="hidden sm:inline">サンプル読込</span>
+                </button>
+                <button onclick="openResetModal()" class="mc-btn text-xs font-bold px-3 py-2 rounded-lg bg-mc-card hover:bg-red-950/60 text-red-400 border border-mc-border hover:border-red-800 flex items-center gap-1.5" title="保存データを初期化">
+                    <i class="fa-solid fa-trash-can"></i>
+                    <span class="hidden sm:inline">リセット</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- メインコンテンツ -->
+    <main class="flex-1 max-w-6xl w-full mx-auto px-4 sm:px-6 py-6 space-y-6">
+
+        <!-- 1. サーバー情報・ステータスカード（プレビュー表示） -->
+        <section class="bg-mc-slate border border-mc-border rounded-2xl p-5 sm:p-6 shadow-xl relative overflow-hidden">
+            <div class="flex flex-col md:flex-row gap-5 items-start md:items-center justify-between">
+                
+                <!-- サーバー画像 + サーバー名 + MOTD -->
+                <div class="flex items-start sm:items-center gap-4 w-full md:w-auto">
+                    <!-- サーバーアイコン枠 (クリックで画像変更可能) -->
+                    <div class="relative group shrink-0">
+                        <div class="w-20 h-20 sm:w-24 sm:h-24 rounded-xl bg-mc-obsidian border-2 border-mc-border overflow-hidden flex items-center justify-center shadow-inner">
+                            <img id="display-server-icon" src="" alt="Server Icon" class="w-full h-full object-cover pixelated">
+                        </div>
+                        <button onclick="document.getElementById('server-image-input').click()" class="absolute inset-0 bg-black/70 opacity-0 group-hover:opacity-100 transition-opacity rounded-xl flex flex-col items-center justify-center text-white text-xs font-bold gap-1 cursor-pointer">
+                            <i class="fa-solid fa-camera text-base text-mc-emerald"></i>
+                            <span>画像変更</span>
+                        </button>
+                    </div>
+
+                    <!-- サーバーテキスト情報 -->
+                    <div class="space-y-1.5 min-w-0 flex-1">
+                        <div class="flex flex-wrap items-center gap-2">
+                            <!-- オンラインステータスバッジ -->
+                            <button id="status-toggle-btn" onclick="toggleManualStatus()" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold transition cursor-pointer" title="クリックでオンライン/オフライン手動切替">
+                                <span id="status-dot" class="w-2 h-2 rounded-full"></span>
+                                <span id="status-label">ONLINE</span>
+                            </button>
+                            <!-- エディション表示 -->
+                            <span id="display-edition" class="px-2 py-0.5 rounded-md text-[11px] font-bold bg-mc-card text-slate-300 border border-mc-border">
+                                Java版
+                            </span>
+                            <!-- バージョン表示 -->
+                            <span id="display-version" class="px-2 py-0.5 rounded-md text-[11px] font-mono text-slate-400 bg-mc-obsidian border border-mc-border">
+                                1.21.4
+                            </span>
+                        </div>
+
+                        <h2 id="display-server-name" class="text-xl sm:text-2xl font-black text-white truncate">
+                            マイクラサバイバルサーバー
+                        </h2>
+
+                        <!-- サーバーIPコピー欄 -->
+                        <div class="flex items-center gap-2">
+                            <code id="display-server-ip" class="text-xs sm:text-sm font-mono text-mc-emerald bg-mc-obsidian px-2.5 py-1 rounded-lg border border-mc-border truncate max-w-[220px] sm:max-w-xs">
+                                play.example.jp
+                            </code>
+                            <button onclick="copyServerIP()" class="text-xs px-2.5 py-1 rounded-lg bg-mc-card hover:bg-slate-700 text-slate-300 border border-mc-border transition flex items-center gap-1 shrink-0" title="IPアドレスをコピー">
+                                <i class="fa-regular fa-copy"></i>
+                                <span>コピー</span>
+                            </button>
+                        </div>
+
+                        <p id="display-motd" class="text-xs sm:text-sm text-slate-400 line-clamp-2 pt-0.5">
+                            みんなで建築＆冒険しよう！初心者大歓迎の生活サーバーです。
+                        </p>
+                    </div>
+                </div>
+
+                <!-- 参加人数カウンター -->
+                <div class="w-full md:w-auto flex flex-row md:flex-col items-center md:items-end justify-between gap-3 pt-4 md:pt-0 border-t md:border-t-0 border-mc-border">
+                    <div class="text-left md:text-right">
+                        <div class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-0.5">現在の参加人数</div>
+                        <div class="flex items-baseline gap-1.5 md:justify-end">
+                            <span id="display-online-count" class="text-3xl sm:text-4xl font-black text-mc-grass font-mono">0</span>
+                            <span class="text-slate-500 font-bold">/</span>
+                            <span id="display-max-count" class="text-lg sm:text-xl font-bold text-slate-300 font-mono">20</span>
+                            <span class="text-xs text-slate-400 ml-0.5">人</span>
+                        </div>
+                    </div>
+
+                    <!-- 人数カウントモード切替 -->
+                    <div class="flex items-center gap-1.5 bg-mc-obsidian p-1 rounded-xl border border-mc-border text-xs">
+                        <button id="mode-list-btn" onclick="setCountMode('list')" class="px-2.5 py-1.5 rounded-lg font-bold transition">
+                            名簿連動
+                        </button>
+                        <button id="mode-api-btn" onclick="setCountMode('api')" class="px-2.5 py-1.5 rounded-lg font-bold transition">
+                            API/手動値
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 2. サーバー設定・API取得 & 画像設定 アコーディオン/グリッド -->
+        <section class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            
+            <!-- 左側: サーバー設定フォーム (5カラム) -->
+            <div class="lg:col-span-5 bg-mc-slate border border-mc-border rounded-2xl p-5 space-y-4 h-fit">
+                <div class="flex items-center justify-between border-b border-mc-border pb-3">
+                    <h3 class="font-bold text-white flex items-center gap-2 text-sm sm:text-base">
+                        <i class="fa-solid fa-server text-mc-emerald"></i>
+                        <span>サーバー設定・ステータス取得</span>
+                    </h3>
+                    <button onclick="fetchLiveServerStatus()" id="fetch-btn" class="mc-btn text-xs font-bold px-3 py-1.5 rounded-lg bg-mc-emerald hover:bg-mc-emeraldDark text-slate-950 flex items-center gap-1.5">
+                        <i class="fa-solid fa-rotate" id="fetch-icon"></i>
+                        <span>リアルタイム取得</span>
+                    </button>
+                </div>
+
+                <!-- サーバーアドレス & エディション -->
+                <div class="space-y-3">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-300 mb-1">サーバーアドレス (IP / ドメイン)</label>
+                        <div class="flex gap-2">
+                            <input type="text" id="input-server-ip" placeholder="例: mc.hypixel.net または play.example.jp" 
+                                class="w-full bg-mc-obsidian border border-mc-border focus:border-mc-emerald rounded-xl px-3.5 py-2.5 text-sm text-white placeholder-slate-500 outline-none transition"
+                                oninput="handleServerFieldChange()">
+                        </div>
+                        <p class="text-[11px] text-slate-400 mt-1">公開サーバーのIPを入れて「リアルタイム取得」を押すと人数やアイコンを自動取得できます。</p>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-xs font-bold text-slate-300 mb-1">エディション</label>
+                            <select id="input-edition" onchange="handleServerFieldChange()" class="w-full bg-mc-obsidian border border-mc-border focus:border-mc-emerald rounded-xl px-3 py-2.5 text-sm text-white outline-none">
+                                <option value="Java版">Java版 (JE)</option>
+                                <option value="統合版">統合版 (BE)</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-slate-300 mb-1">最大参加人数</label>
+                            <input type="number" id="input-max-players" min="1" max="99999" value="20" oninput="handleServerFieldChange()"
+                                class="w-full bg-mc-obsidian border border-mc-border focus:border-mc-emerald rounded-xl px-3 py-2.5 text-sm text-white outline-none">
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-bold text-slate-300 mb-1">サーバー名（表示タイトル）</label>
+                        <input type="text" id="input-server-name" placeholder="サーバーの名前" oninput="handleServerFieldChange()"
+                            class="w-full bg-mc-obsidian border border-mc-border focus:border-mc-emerald rounded-xl px-3.5 py-2.5 text-sm text-white outline-none">
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-xs font-bold text-slate-300 mb-1">バージョン表記</label>
+                            <input type="text" id="input-version" placeholder="例: 1.21.4" oninput="handleServerFieldChange()"
+                                class="w-full bg-mc-obsidian border border-mc-border focus:border-mc-emerald rounded-xl px-3 py-2 text-sm text-white outline-none">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-slate-300 mb-1">手動/API人数値</label>
+                            <input type="number" id="input-manual-count" min="0" max="99999" value="0" oninput="handleServerFieldChange()"
+                                class="w-full bg-mc-obsidian border border-mc-border focus:border-mc-emerald rounded-xl px-3 py-2 text-sm text-white outline-none">
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-bold text-slate-300 mb-1">サーバー説明文 (MOTD)</label>
+                        <textarea id="input-motd" rows="2" placeholder="サーバーの紹介文や現在のイベント情報など" oninput="handleServerFieldChange()"
+                            class="w-full bg-mc-obsidian border border-mc-border focus:border-mc-emerald rounded-xl px-3.5 py-2 text-sm text-white outline-none resize-none"></textarea>
+                    </div>
+
+                    <!-- サーバー画像アップロード＆URL指定 -->
+                    <div class="pt-2 border-t border-mc-border">
+                        <label class="block text-xs font-bold text-slate-300 mb-1.5">サーバーアイコン画像</label>
+                        <div class="flex flex-wrap items-center gap-2">
+                            <input type="file" id="server-image-input" accept="image/*" class="hidden" onchange="handleImageUpload(event)">
+                            <button type="button" onclick="document.getElementById('server-image-input').click()" class="mc-btn text-xs font-bold px-3.5 py-2 rounded-xl bg-mc-card hover:bg-slate-700 text-white border border-mc-border flex items-center gap-1.5">
+                                <i class="fa-solid fa-upload text-mc-emerald"></i>
+                                <span>画像をアップロード</span>
+                            </button>
+                            <button type="button" onclick="resetServerIcon()" class="text-xs px-3 py-2 rounded-xl bg-mc-obsidian hover:bg-slate-800 text-slate-400 border border-mc-border">
+                                デフォルトに戻す
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 右側: サーバーに入っているプレイヤー名簿管理 (7カラム) -->
+            <div class="lg:col-span-7 bg-mc-slate border border-mc-border rounded-2xl p-5 flex flex-col justify-between space-y-5">
+                <div class="space-y-4">
+                    <div class="flex flex-wrap items-center justify-between gap-2 border-b border-mc-border pb-3">
+                        <h3 class="font-bold text-white flex items-center gap-2 text-sm sm:text-base">
+                            <i class="fa-solid fa-users text-mc-grass"></i>
+                            <span>現在サーバーに入っている人</span>
+                            <span id="player-badge-count" class="text-xs font-mono font-bold px-2 py-0.5 rounded-full bg-mc-emerald/20 text-mc-grass">0人</span>
+                        </h3>
+                        <div class="flex items-center gap-2">
+                            <button onclick="clearAllPlayers()" class="text-xs text-slate-400 hover:text-red-400 px-2.5 py-1 rounded-lg hover:bg-mc-obsidian transition">
+                                全員退出させる
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- プレイヤー追加フォーム -->
+                    <form onsubmit="addPlayer(event)" class="bg-mc-obsidian/80 border border-mc-border rounded-xl p-3.5 space-y-3">
+                        <div class="text-xs font-bold text-mc-diamond flex items-center gap-1.5">
+                            <i class="fa-solid fa-user-plus"></i>
+                            <span>プレイヤーを一人ずつ追加（MCID入力でスキン頭を自動表示）</span>
+                        </div>
+                        <div class="grid grid-cols-1 sm:grid-cols-12 gap-2.5">
+                            <!-- プレビュー頭アイコン + MCID入力 -->
+                            <div class="sm:col-span-5 flex items-center gap-2">
+                                <img id="preview-head-img" src="https://mc-heads.net/avatar/Steve/64" alt="Preview" class="w-9 h-9 rounded-lg bg-mc-card border border-mc-border pixelated shrink-0">
+                                <input type="text" id="new-player-name" required placeholder="マイクラID (例: Notch)" 
+                                    oninput="updateHeadPreview(this.value)"
+                                    class="w-full bg-mc-slate border border-mc-border focus:border-mc-emerald rounded-lg px-3 py-2 text-sm text-white placeholder-slate-500 outline-none">
+                            </div>
+
+                            <!-- 役割・タグ -->
+                            <div class="sm:col-span-3">
+                                <select id="new-player-role" class="w-full bg-mc-slate border border-mc-border focus:border-mc-emerald rounded-lg px-2.5 py-2 text-sm text-white outline-none">
+                                    <option value="メンバー">メンバー</option>
+                                    <option value="管理者">👑 管理者</option>
+                                    <option value="建築勢">🧱 建築勢</option>
+                                    <option value="冒険・採掘">⛏️ 冒険・採掘</option>
+                                    <option value="回路勢">⚡ 回路勢</option>
+                                    <option value="放置中">💤 放置中 (AFK)</option>
+                                </select>
+                            </div>
+
+                            <!-- ひとことメモ -->
+                            <div class="sm:col-span-4 flex gap-2">
+                                <input type="text" id="new-player-note" placeholder="メモ (例: 拠点建築中)" 
+                                    class="w-full bg-mc-slate border border-mc-border focus:border-mc-emerald rounded-lg px-3 py-2 text-sm text-white placeholder-slate-500 outline-none">
+                                <button type="submit" class="mc-btn bg-mc-emerald hover:bg-mc-emeraldDark text-slate-950 font-bold px-3.5 py-2 rounded-lg text-sm shrink-0 flex items-center gap-1">
+                                    <i class="fa-solid fa-plus"></i>
+                                    <span>追加</span>
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+
+                    <!-- プレイヤー一覧リスト -->
+                    <div id="player-list-container" class="space-y-2.5 max-h-[460px] overflow-y-auto pr-1">
+                        <!-- JSで動的にプレイヤーカードが生成されます -->
+                    </div>
+                </div>
+
+                <!-- フッター情報（データのバックアップ・復元） -->
+                <div class="pt-3 border-t border-mc-border flex flex-wrap items-center justify-between gap-2 text-xs text-slate-400">
+                    <span>※入力内容はCookieとブラウザに自動保存されます</span>
+                    <div class="flex items-center gap-2">
+                        <button onclick="exportDataJSON()" class="hover:text-white underline decoration-slate-600">JSON書き出し</button>
+                        <span>/</span>
+                        <label class="hover:text-white underline decoration-slate-600 cursor-pointer">
+                            JSON読込
+                            <input type="file" accept=".json" class="hidden" onchange="importDataJSON(event)">
+                        </label>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- プレイヤー編集モーダル -->
+    <div id="edit-modal" class="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm hidden items-center justify-center p-4">
+        <div class="bg-mc-slate border border-mc-border rounded-2xl max-w-md w-full p-5 space-y-4 shadow-2xl">
+            <div class="flex items-center justify-between border-b border-mc-border pb-3">
+                <h4 class="font-bold text-white flex items-center gap-2">
+                    <i class="fa-solid fa-user-pen text-mc-diamond"></i>
+                    <span>プレイヤー情報の編集</span>
+                </h4>
+                <button onclick="closeEditModal()" class="text-slate-400 hover:text-white p-1">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
+            <input type="hidden" id="edit-player-id">
+            <div class="space-y-3">
+                <div>
+                    <label class="block text-xs font-bold text-slate-300 mb-1">プレイヤー名 (MCID)</label>
+                    <input type="text" id="edit-player-name" class="w-full bg-mc-obsidian border border-mc-border focus:border-mc-emerald rounded-xl px-3.5 py-2 text-sm text-white outline-none">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-300 mb-1">役割・ステータス</label>
+                    <select id="edit-player-role" class="w-full bg-mc-obsidian border border-mc-border focus:border-mc-emerald rounded-xl px-3.5 py-2 text-sm text-white outline-none">
+                        <option value="メンバー">メンバー</option>
+                        <option value="管理者">👑 管理者</option>
+                        <option value="建築勢">🧱 建築勢</option>
+                        <option value="冒険・採掘">⛏️ 冒険・採掘</option>
+                        <option value="回路勢">⚡ 回路勢</option>
+                        <option value="放置中">💤 放置中 (AFK)</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-300 mb-1">今の作業・メモ</label>
+                    <input type="text" id="edit-player-note" placeholder="例: ネザーで古代の残骸探し" class="w-full bg-mc-obsidian border border-mc-border focus:border-mc-emerald rounded-xl px-3.5 py-2 text-sm text-white outline-none">
+                </div>
+            </div>
+            <div class="flex justify-end gap-2 pt-2">
+                <button onclick="closeEditModal()" class="px-4 py-2 rounded-xl text-xs font-bold bg-mc-card text-slate-300 hover:bg-slate-700">キャンセル</button>
+                <button onclick="saveEditedPlayer()" class="mc-btn px-4 py-2 rounded-xl text-xs font-bold bg-mc-emerald text-slate-950 hover:bg-mc-emeraldDark">保存する</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- データリセット確認モーダル（alert/confirmの代わり） -->
+    <div id="reset-modal" class="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm hidden items-center justify-center p-4">
+        <div class="bg-mc-slate border border-mc-border rounded-2xl max-w-sm w-full p-5 space-y-4 shadow-2xl">
+            <div class="flex items-center gap-3 text-red-400">
+                <div class="w-10 h-10 rounded-full bg-red-500/10 flex items-center justify-center shrink-0">
+                    <i class="fa-solid fa-triangle-exclamation text-lg"></i>
+                </div>
+                <div>
+                    <h4 class="font-bold text-white">データを初期化しますか？</h4>
+                    <p class="text-xs text-slate-400 mt-0.5">Cookieとローカルに保存されたサーバー情報とプレイヤー名簿がすべて消去されます。</p>
+                </div>
+            </div>
+            <div class="flex justify-end gap-2 pt-2">
+                <button onclick="closeResetModal()" class="px-4 py-2 rounded-xl text-xs font-bold bg-mc-card text-slate-300 hover:bg-slate-700">やめる</button>
+                <button onclick="confirmResetData()" class="mc-btn px-4 py-2 rounded-xl text-xs font-bold bg-red-600 text-white hover:bg-red-500">初期化する</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- トースト通知エリア -->
+    <div id="toast-container" class="fixed bottom-4 right-4 z-50 flex flex-col gap-2 pointer-events-none"></div>
+
+    <script>
+        // ==========================================
+        // デフォルトサーバーアイコン (SVG Data URI - 外部画像切れ防止)
+        // ==========================================
+        const DEFAULT_SERVER_ICON = "data:image/svg+xml;utf8," + encodeURIComponent(`
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+                <rect width="64" height="64" fill="#593d29"/>
+                <rect width="64" height="18" fill="#4ade80"/>
+                <rect x="0" y="18" width="8" height="6" fill="#4ade80"/>
+                <rect x="16" y="18" width="12" height="8" fill="#4ade80"/>
+                <rect x="36" y="18" width="8" height="5" fill="#4ade80"/>
+                <rect x="52" y="18" width="12" height="7" fill="#4ade80"/>
+                <rect x="10" y="32" width="6" height="6" fill="#3e2723"/>
+                <rect x="44" y="42" width="8" height="6" fill="#3e2723"/>
+                <rect x="24" y="50" width="6" height="6" fill="#78716c"/>
+            </svg>
+        `);
+
+        // ==========================================
+        // アプリケーション状態 (State)
+        // ==========================================
+        const STORAGE_KEY = 'mc_server_status_v1';
+        const COOKIE_NAME = 'mc_server_cookie_v1';
+
+        let appState = {
+            serverName: 'マイクラサバイバルサーバー',
+            serverIp: 'play.example.jp',
+            edition: 'Java版',
+            version: '1.21.4',
+            motd: 'みんなで建築＆冒険しよう！初心者大歓迎の生活サーバーです。',
+            isOnline: true,
+            maxPlayers: 20,
+            manualCount: 0,
+            countMode: 'list', // 'list' (名簿の人数と連動) または 'api' (API取得値/手動値)
+            serverIcon: DEFAULT_SERVER_ICON,
+            players: []
+        };
+
+        // ==========================================
+        // Cookie & LocalStorage 永続化ユーティリティ
+        // ==========================================
+        function setCookie(name, value, days = 365) {
+            try {
+                const expires = new Date(Date.now() + days * 864e5).toUTCString();
+                document.cookie = `${name}=${encodeURIComponent(value)}; expires=${expires}; path=/; SameSite=Lax`;
+            } catch (e) {
+                console.warn('Cookie保存エラー:', e);
+            }
+        }
+
+        function getCookie(name) {
+            try {
+                const cookies = document.cookie ? document.cookie.split('; ') : [];
+                for (let i = 0; i < cookies.length; i++) {
+                    const parts = cookies[i].split('=');
+                    const key = parts.shift();
+                    if (key === name) {
+                        return decodeURIComponent(parts.join('='));
+                    }
+                }
+            } catch (e) {
+                console.warn('Cookie読込エラー:', e);
+            }
+            return null;
+        }
+
+        function deleteCookie(name) {
+            document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;`;
+        }
+
+        /**
+         * 状態をCookieおよびLocalStorageに保存する
+         * ※Cookieには4KBの上限があるため、画像以外の軽量JSONをCookieに必ず保存し、
+         *   画像データを含めた完全版をLocalStorageにも同期保存するハイブリッド方式を採用
+         */
+        function saveState() {
+            try {
+                // 1. 完全なデータをLocalStorageに保存（画像データ含む）
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(appState));
+
+                // 2. Cookie用に軽量化したJSONを作成してCookieに保存（4KB制限対策）
+                const cookiePayload = {
+                    serverName: appState.serverName,
+                    serverIp: appState.serverIp,
+                    edition: appState.edition,
+                    version: appState.version,
+                    motd: appState.motd,
+                    isOnline: appState.isOnline,
+                    maxPlayers: appState.maxPlayers,
+                    manualCount: appState.manualCount,
+                    countMode: appState.countMode,
+                    // 外部URLの場合はCookieにも保存、長大なBase64はLocalStorage側で保持
+                    serverIconUrl: appState.serverIcon && appState.serverIcon.length < 600 ? appState.serverIcon : null,
+                    players: appState.players.slice(0, 30) // Cookieサイズ内に収まるよう保存
+                };
+                setCookie(COOKIE_NAME, JSON.stringify(cookiePayload), 365);
+
+                // 保存インジケーター更新
+                const saveText = document.getElementById('save-text');
+                if (saveText) {
+                    const now = new Date();
+                    const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`;
+                    saveText.textContent = `Cookie保存済 (${timeStr})`;
+                }
+            } catch (e) {
+                console.error('保存に失敗しました:', e);
+                showToast('保存容量の上限に達しました。画像サイズを小さくしてください。', 'error');
+            }
+        }
+
+        /**
+         * 起動時にCookie / LocalStorageからデータを復元
+         */
+        function loadState() {
+            let loaded = false;
+            try {
+                const localRaw = localStorage.getItem(STORAGE_KEY);
+                const cookieRaw = getCookie(COOKIE_NAME);
+
+                if (localRaw) {
+                    const parsed = JSON.parse(localRaw);
+                    appState = { ...appState, ...parsed };
+                    loaded = true;
+                } else if (cookieRaw) {
+                    const parsedCookie = JSON.parse(cookieRaw);
+                    appState = {
+                        ...appState,
+                        ...parsedCookie,
+                        serverIcon: parsedCookie.serverIconUrl || DEFAULT_SERVER_ICON
+                    };
+                    loaded = true;
+                }
+            } catch (e) {
+                console.error('データの復元に失敗しました:', e);
+            }
+
+            // 初回訪問時は分かりやすい初期プレイヤーを入れておく
+            if (!loaded) {
+                appState.players = [
+                    {
+                        id: 'p_' + Date.now() + '_1',
+                        name: 'Steve',
+                        role: '管理者',
+                        note: 'サーバー設定・ワールド整備中',
+                        joinedAt: '10分前'
+                    },
+                    {
+                        id: 'p_' + Date.now() + '_2',
+                        name: 'Alex',
+                        role: '建築勢',
+                        note: 'スポーン地点の拠点建築中',
+                        joinedAt: '25分前'
+                    }
+                ];
+                saveState();
+            }
+        }
+
+        // ==========================================
+        // UI レンダリング・同期処理
+        // ==========================================
+        function renderAll() {
+            // フォーム入力欄への値反映
+            document.getElementById('input-server-ip').value = appState.serverIp;
+            document.getElementById('input-edition').value = appState.edition;
+            document.getElementById('input-max-players').value = appState.maxPlayers;
+            document.getElementById('input-server-name').value = appState.serverName;
+            document.getElementById('input-version').value = appState.version;
+            document.getElementById('input-manual-count').value = appState.manualCount;
+            document.getElementById('input-motd').value = appState.motd;
+
+            // プレビューカードへの反映
+            const iconImg = document.getElementById('display-server-icon');
+            iconImg.src = appState.serverIcon || DEFAULT_SERVER_ICON;
+            iconImg.onerror = () => { iconImg.src = DEFAULT_SERVER_ICON; };
+
+            document.getElementById('display-server-name').textContent = appState.serverName || '名称未設定サーバー';
+            document.getElementById('display-server-ip').textContent = appState.serverIp || 'IP未設定';
+            document.getElementById('display-edition').textContent = appState.edition;
+            document.getElementById('display-version').textContent = appState.version || '不明';
+            document.getElementById('display-motd').textContent = appState.motd || '説明文が設定されていません';
+
+            // オンラインステータスバッジ
+            const statusBtn = document.getElementById('status-toggle-btn');
+            const statusDot = document.getElementById('status-dot');
+            const statusLabel = document.getElementById('status-label');
+
+            if (appState.isOnline) {
+                statusBtn.className = 'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold transition cursor-pointer bg-mc-emerald/20 text-mc-grass border border-mc-emerald/40';
+                statusDot.className = 'w-2 h-2 rounded-full bg-mc-grass animate-pulse';
+                statusLabel.textContent = 'ONLINE';
+            } else {
+                statusBtn.className = 'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold transition cursor-pointer bg-red-500/20 text-red-400 border border-red-500/40';
+                statusDot.className = 'w-2 h-2 rounded-full bg-red-500';
+                statusLabel.textContent = 'OFFLINE';
+            }
+
+            // 人数カウント計算 & モードボタン表示
+            const activeCount = appState.countMode === 'list' ? appState.players.length : Number(appState.manualCount || 0);
+            document.getElementById('display-online-count').textContent = activeCount;
+            document.getElementById('display-max-count').textContent = appState.maxPlayers || 20;
+            document.getElementById('player-badge-count').textContent = `${appState.players.length}人`;
+
+            const modeListBtn = document.getElementById('mode-list-btn');
+            const modeApiBtn = document.getElementById('mode-api-btn');
+            if (appState.countMode === 'list') {
+                modeListBtn.className = 'px-2.5 py-1.5 rounded-lg font-bold transition bg-mc-emerald text-slate-950';
+                modeApiBtn.className = 'px-2.5 py-1.5 rounded-lg font-bold transition text-slate-400 hover:text-white';
+            } else {
+                modeApiBtn.className = 'px-2.5 py-1.5 rounded-lg font-bold transition bg-mc-emerald text-slate-950';
+                modeListBtn.className = 'px-2.5 py-1.5 rounded-lg font-bold transition text-slate-400 hover:text-white';
+            }
+
+            renderPlayerList();
+        }
+
+        /**
+         * プレイヤー名簿一覧の描画
+         */
+        function renderPlayerList() {
+            const container = document.getElementById('player-list-container');
+            if (!appState.players || appState.players.length === 0) {
+                container.innerHTML = `
+                    <div class="text-center py-10 px-4 border border-dashed border-mc-border rounded-xl bg-mc-obsidian/40">
+                        <i class="fa-solid fa-user-slash text-2xl text-slate-500 mb-2"></i>
+                        <p class="text-sm font-bold text-slate-300">現在サーバーに入っている人はいません</p>
+                        <p class="text-xs text-slate-500 mt-1">上のフォームからマイクラIDを入力して追加してください</p>
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = appState.players.map((player) => {
+                const safeName = escapeHTML(player.name);
+                const safeRole = escapeHTML(player.role || 'メンバー');
+                const safeNote = escapeHTML(player.note || '');
+                const headUrl = `https://mc-heads.net/avatar/${encodeURIComponent(player.name)}/64`;
+
+                // 役割に応じたバッジカラー
+                let roleBadgeClass = 'bg-slate-700/70 text-slate-200 border-slate-600';
+                if (safeRole.includes('管理者')) roleBadgeClass = 'bg-amber-500/20 text-amber-300 border-amber-500/40';
+                else if (safeRole.includes('建築')) roleBadgeClass = 'bg-sky-500/20 text-sky-300 border-sky-500/40';
+                else if (safeRole.includes('冒険') || safeRole.includes('採掘')) roleBadgeClass = 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40';
+                else if (safeRole.includes('回路')) roleBadgeClass = 'bg-rose-500/20 text-rose-300 border-rose-500/40';
+                else if (safeRole.includes('放置')) roleBadgeClass = 'bg-purple-500/20 text-purple-300 border-purple-500/40';
+
+                return `
+                    <div class="flex items-center justify-between gap-3 p-3 rounded-xl bg-mc-card/80 hover:bg-mc-card border border-mc-border transition group">
+                        <div class="flex items-center gap-3 min-w-0">
+                            <!-- マイクラスキン頭画像 -->
+                            <div class="relative shrink-0">
+                                <img src="${headUrl}" 
+                                     onerror="this.onerror=null; this.src='https://mc-heads.net/avatar/Steve/64';" 
+                                     alt="${safeName}" 
+                                     class="w-11 h-11 rounded-lg bg-mc-obsidian border border-mc-border pixelated shadow">
+                                <span class="absolute -bottom-1 -right-1 w-3.5 h-3.5 rounded-full bg-mc-grass border-2 border-mc-card" title="ログイン中"></span>
+                            </div>
+
+                            <!-- プレイヤー情報 -->
+                            <div class="min-w-0">
+                                <div class="flex flex-wrap items-center gap-2">
+                                    <span class="font-bold text-white text-sm sm:text-base truncate">${safeName}</span>
+                                    <span class="text-[11px] font-bold px-2 py-0.5 rounded-md border ${roleBadgeClass}">
+                                        ${safeRole}
+                                    </span>
+                                </div>
+                                <div class="flex items-center gap-2 text-xs text-slate-400 mt-0.5 truncate">
+                                    ${safeNote ? `<span class="text-slate-300 truncate"><i class="fa-regular fa-comment-dots mr-1 text-slate-500"></i>${safeNote}</span>` : '<span class="text-slate-500">ログイン中</span>'}
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 操作ボタン（編集・退出） -->
+                        <div class="flex items-center gap-1.5 shrink-0">
+                            <button onclick="openEditModal('${player.id}')" class="p-2 rounded-lg bg-mc-obsidian hover:bg-slate-700 text-slate-300 hover:text-mc-diamond border border-mc-border transition" title="編集">
+                                <i class="fa-solid fa-pen text-xs"></i>
+                            </button>
+                            <button onclick="removePlayer('${player.id}')" class="p-2 rounded-lg bg-mc-obsidian hover:bg-red-950 text-slate-300 hover:text-red-400 border border-mc-border hover:border-red-800 transition" title="サーバーから退出させる">
+                                <i class="fa-solid fa-right-from-bracket text-xs"></i>
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // ==========================================
+        // フォーム変更 & プレイヤー操作イベント
+        // ==========================================
+        function handleServerFieldChange() {
+            appState.serverIp = document.getElementById('input-server-ip').value.trim();
+            appState.edition = document.getElementById('input-edition').value;
+            appState.maxPlayers = parseInt(document.getElementById('input-max-players').value, 10) || 20;
+            appState.serverName = document.getElementById('input-server-name').value;
+            appState.version = document.getElementById('input-version').value;
+            appState.manualCount = parseInt(document.getElementById('input-manual-count').value, 10) || 0;
+            appState.motd = document.getElementById('input-motd').value;
+
+            saveState();
+            renderAll();
+        }
+
+        function toggleManualStatus() {
+            appState.isOnline = !appState.isOnline;
+            saveState();
+            renderAll();
+            showToast(appState.isOnline ? 'ステータスを ONLINE に変更しました' : 'ステータスを OFFLINE に変更しました');
+        }
+
+        function setCountMode(mode) {
+            appState.countMode = mode;
+            saveState();
+            renderAll();
+            showToast(mode === 'list' ? '参加人数を「プレイヤー名簿の人数」と連動させました' : '参加人数を「API取得/手動入力値」に切り替えました');
+        }
+
+        /**
+         * サーバー画像のアップロード処理（キャンバスで128x128にリサイズして軽量保存）
+         */
+        function handleImageUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const img = new Image();
+                img.onload = function() {
+                    const canvas = document.createElement('canvas');
+                    const size = 128;
+                    canvas.width = size;
+                    canvas.height = size;
+                    const ctx = canvas.getContext('2d');
+
+                    // 中央クロップして正方形に描画
+                    const minSide = Math.min(img.width, img.height);
+                    const sx = (img.width - minSide) / 2;
+                    const sy = (img.height - minSide) / 2;
+                    ctx.drawImage(img, sx, sy, minSide, minSide, 0, 0, size, size);
+
+                    appState.serverIcon = canvas.toDataURL('image/png');
+                    saveState();
+                    renderAll();
+                    showToast('サーバーアイコン画像を更新・保存しました！');
+                };
+                img.src = e.target.result;
+            };
+            reader.readAsDataURL(file);
+            event.target.value = '';
+        }
+
+        function resetServerIcon() {
+            appState.serverIcon = DEFAULT_SERVER_ICON;
+            saveState();
+            renderAll();
+            showToast('サーバーアイコンをデフォルトに戻しました');
+        }
+
+        /**
+         * 新規プレイヤーの追加
+         */
+        let headPreviewTimeout = null;
+        function updateHeadPreview(val) {
+            clearTimeout(headPreviewTimeout);
+            headPreviewTimeout = setTimeout(() => {
+                const cleanName = val.trim() || 'Steve';
+                const img = document.getElementById('preview-head-img');
+                img.src = `https://mc-heads.net/avatar/${encodeURIComponent(cleanName)}/64`;
+                img.onerror = () => { img.src = 'https://mc-heads.net/avatar/Steve/64'; };
+            }, 300);
+        }
+
+        function addPlayer(event) {
+            event.preventDefault();
+            const nameInput = document.getElementById('new-player-name');
+            const roleInput = document.getElementById('new-player-role');
+            const noteInput = document.getElementById('new-player-note');
+
+            const name = nameInput.value.trim();
+            if (!name) return;
+
+            const newPlayer = {
+                id: 'p_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6),
+                name: name,
+                role: roleInput.value,
+                note: noteInput.value.trim(),
+                joinedAt: 'たった今'
+            };
+
+            appState.players.unshift(newPlayer);
+            appState.countMode = 'list'; // 追加時は自動で名簿連動モードにする
+
+            nameInput.value = '';
+            noteInput.value = '';
+            document.getElementById('preview-head-img').src = 'https://mc-heads.net/avatar/Steve/64';
+
+            saveState();
+            renderAll();
+            showToast(`${name} をサーバー名簿に追加しました！`);
+        }
+
+        function removePlayer(id) {
+            const target = appState.players.find(p => p.id === id);
+            appState.players = appState.players.filter(p => p.id !== id);
+            saveState();
+            renderAll();
+            if (target) {
+                showToast(`${target.name} がサーバーから退出しました`);
+            }
+        }
+
+        function clearAllPlayers() {
+            if (appState.players.length === 0) return;
+            appState.players = [];
+            saveState();
+            renderAll();
+            showToast('参加プレイヤー名簿を空にしました');
+        }
+
+        // ==========================================
+        // プレイヤー編集モーダル
+        // ==========================================
+        function openEditModal(id) {
+            const player = appState.players.find(p => p.id === id);
+            if (!player) return;
+
+            document.getElementById('edit-player-id').value = player.id;
+            document.getElementById('edit-player-name').value = player.name;
+            document.getElementById('edit-player-role').value = player.role || 'メンバー';
+            document.getElementById('edit-player-note').value = player.note || '';
+
+            const modal = document.getElementById('edit-modal');
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        }
+
+        function closeEditModal() {
+            const modal = document.getElementById('edit-modal');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+        }
+
+        function saveEditedPlayer() {
+            const id = document.getElementById('edit-player-id').value;
+            const name = document.getElementById('edit-player-name').value.trim();
+            const role = document.getElementById('edit-player-role').value;
+            const note = document.getElementById('edit-player-note').value.trim();
+
+            if (!name) return;
+
+            const idx = appState.players.findIndex(p => p.id === id);
+            if (idx !== -1) {
+                appState.players[idx] = { ...appState.players[idx], name, role, note };
+                saveState();
+                renderAll();
+                showToast(`${name} の情報を更新しました`);
+            }
+            closeEditModal();
+        }
+
+        // ==========================================
+        // 公開マイクラAPIからのリアルタイムステータス取得
+        // ==========================================
+        async function fetchLiveServerStatus() {
+            const ip = document.getElementById('input-server-ip').value.trim();
+            if (!ip) {
+                showToast('サーバーアドレス（IP）を入力してください', 'error');
+                return;
+            }
+
+            const fetchBtn = document.getElementById('fetch-btn');
+            const fetchIcon = document.getElementById('fetch-icon');
+            fetchBtn.disabled = true;
+            fetchIcon.classList.add('animate-spin');
+
+            try {
+                const isBedrock = appState.edition === '統合版';
+                const endpoint = isBedrock
+                    ? `https://api.mcsrvstat.us/bedrock/3/${encodeURIComponent(ip)}`
+                    : `https://api.mcsrvstat.us/3/${encodeURIComponent(ip)}`;
+
+                const response = await fetch(endpoint);
+                if (!response.ok) throw new Error('API通信エラー');
+                const data = await response.json();
+
+                appState.serverIp = ip;
+                appState.isOnline = Boolean(data.online);
+
+                if (data.online) {
+                    if (data.version) appState.version = data.version;
+                    if (data.motd && Array.isArray(data.motd.clean)) {
+                        appState.motd = data.motd.clean.join(' ').trim();
+                    }
+                    if (data.icon) {
+                        appState.serverIcon = data.icon;
+                    }
+                    if (data.players) {
+                        appState.maxPlayers = data.players.max || appState.maxPlayers;
+                        appState.manualCount = data.players.online ?? 0;
+
+                        // APIからプレイヤー一覧が取得できた場合は名簿にも反映
+                        if (Array.isArray(data.players.list) && data.players.list.length > 0) {
+                            appState.players = data.players.list.map((p, i) => ({
+                                id: 'api_' + Date.now() + '_' + i,
+                                name: typeof p === 'string' ? p : (p.name || 'Player'),
+                                role: 'メンバー',
+                                note: 'APIから自動取得',
+                                joinedAt: 'オンライン'
+                            }));
+                            appState.countMode = 'list';
+                        } else {
+                            // 大規模サーバー等で個別リスト非公開の場合はAPI人数モードに切替
+                            appState.countMode = 'api';
+                        }
+                    }
+                    showToast(`「${ip}」のサーバーステータスを取得しました！`);
+                } else {
+                    appState.manualCount = 0;
+                    showToast(`「${ip}」は現在オフラインか、非公開設定です`, 'error');
+                }
+
+                saveState();
+                renderAll();
+            } catch (err) {
+                console.error(err);
+                showToast('サーバー情報の取得に失敗しました。アドレスを確認してください。', 'error');
+            } finally {
+                fetchBtn.disabled = false;
+                fetchIcon.classList.remove('animate-spin');
+            }
+        }
+
+        // ==========================================
+        // サンプル読込 / リセット / JSON入出力 / コピー
+        // ==========================================
+        function loadSampleData() {
+            appState = {
+                serverName: '★ 星空クラフト生活サーバー ★',
+                serverIp: 'play.hoshizora-mc.jp',
+                edition: 'Java版',
+                version: '1.21.4',
+                motd: '第3期ワールド開放中！経済・建築・ダンジョン攻略が楽しめる生活鯖',
+                isOnline: true,
+                maxPlayers: 30,
+                manualCount: 5,
+                countMode: 'list',
+                serverIcon: DEFAULT_SERVER_ICON,
+                players: [
+                    { id: 's1', name: 'Notch', role: '管理者', note: 'イベント会場の最終調整中', joinedAt: '1時間前' },
+                    { id: 's2', name: 'jeb_', role: '回路勢', note: '自動仕分け倉庫を建設中', joinedAt: '40分前' },
+                    { id: 's3', name: 'Dream', role: '冒険・採掘', note: 'エンドシティ探索中', joinedAt: '15分前' },
+                    { id: 's4', name: 'Technoblade', role: '建築勢', note: '城下町の道路整備', joinedAt: '5分前' },
+                    { id: 's5', name: 'Alex', role: '放置中', note: '経験値トラップで待機中', joinedAt: '2分前' }
+                ]
+            };
+            saveState();
+            renderAll();
+            showToast('サンプルサーバーと5人のプレイヤーを読み込みました！');
+        }
+
+        function openResetModal() {
+            const modal = document.getElementById('reset-modal');
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        }
+
+        function closeResetModal() {
+            const modal = document.getElementById('reset-modal');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+        }
+
+        function confirmResetData() {
+            localStorage.removeItem(STORAGE_KEY);
+            deleteCookie(COOKIE_NAME);
+            appState = {
+                serverName: 'マイクラサバイバルサーバー',
+                serverIp: 'play.example.jp',
+                edition: 'Java版',
+                version: '1.21.4',
+                motd: 'みんなで建築＆冒険しよう！',
+                isOnline: true,
+                maxPlayers: 20,
+                manualCount: 0,
+                countMode: 'list',
+                serverIcon: DEFAULT_SERVER_ICON,
+                players: []
+            };
+            saveState();
+            renderAll();
+            closeResetModal();
+            showToast('Cookieと保存データをすべて初期化しました');
+        }
+
+        function copyServerIP() {
+            const ipText = appState.serverIp || '';
+            if (!ipText) return;
+            const tempInput = document.createElement('input');
+            tempInput.value = ipText;
+            document.body.appendChild(tempInput);
+            tempInput.select();
+            document.execCommand('copy');
+            document.body.removeChild(tempInput);
+            showToast(`サーバーIP「${ipText}」をコピーしました！`);
+        }
+
+        function exportDataJSON() {
+            const dataStr = JSON.stringify(appState, null, 2);
+            const blob = new Blob([dataStr], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `mc-server-status-${new Date().toISOString().slice(0, 10)}.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+            showToast('設定とプレイヤー名簿をJSONで保存しました');
+        }
+
+        function importDataJSON(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const imported = JSON.parse(e.target.result);
+                    appState = { ...appState, ...imported };
+                    saveState();
+                    renderAll();
+                    showToast('JSONファイルからデータを復元しました！');
+                } catch (err) {
+                    showToast('JSONファイルの読み込みに失敗しました', 'error');
+                }
+            };
+            reader.readAsText(file);
+            event.target.value = '';
+        }
+
+        // ==========================================
+        // ユーティリティ (XSS対策・トースト通知)
+        // ==========================================
+        function escapeHTML(str) {
+            return String(str)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
+        }
+
+        function showToast(message, type = 'success') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            const borderColor = type === 'error' ? 'border-red-500/60 bg-slate-900 text-red-200' : 'border-mc-emerald/60 bg-slate-900 text-white';
+            const icon = type === 'error' ? '<i class="fa-solid fa-circle-exclamation text-red-400"></i>' : '<i class="fa-solid fa-circle-check text-mc-grass"></i>';
+
+            toast.className = `toast-enter pointer-events-auto flex items-center gap-2.5 px-4 py-3 rounded-xl border ${borderColor} shadow-2xl text-xs sm:text-sm font-bold max-w-sm`;
+            toast.innerHTML = `${icon}<span>${escapeHTML(message)}</span>`;
+
+            container.appendChild(toast);
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                toast.style.transform = 'translateY(10px)';
+                toast.style.transition = 'all 0.2s ease';
+                setTimeout(() => toast.remove(), 220);
+            }, 3000);
+        }
+
+        // 初期化実行
+        window.addEventListener('DOMContentLoaded', () => {
+            loadState();
+            renderAll();
+        });
+    </script>
+</body>
+</html>
