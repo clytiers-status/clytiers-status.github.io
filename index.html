@@ -144,6 +144,7 @@
                             class="bg-bg-base border border-bg-border focus:border-mc-emerald rounded-xl px-3 py-2.5 text-sm font-bold text-slate-200 outline-none">
                             <option value="java">Java版</option>
                             <option value="bedrock">統合版 (BE)</option>
+                            <option value="multi">マルチプレイ (Java + 統合版)</option>
                         </select>
                     </div>
                     <div class="flex gap-2">
@@ -176,6 +177,9 @@
                         </button>
                         <button type="button" onclick="quickAddPreset('play.inpvp.net', 'bedrock', 'Mineville (BE)')" class="text-[11px] font-mono px-2.5 py-1 rounded-lg bg-bg-elevated hover:bg-slate-700 text-slate-300 border border-bg-border transition cursor-pointer">
                             + play.inpvp.net (BE)
+                        </button>
+                        <button type="button" onclick="quickAddPreset('play.cubecraft.net', 'multi', 'CubeCraft (Java+BE)')" class="text-[11px] font-mono px-2.5 py-1 rounded-lg bg-bg-elevated hover:bg-slate-700 text-slate-300 border border-bg-border transition cursor-pointer">
+                            + CubeCraft (マルチ)
                         </button>
                     </div>
                 </div>
@@ -277,16 +281,21 @@
         // ==========================================
         // アプリケーション状態
         // ==========================================
-        let savedServers = [];      // { id, address, edition, label }
-        let statusCache = {};       // { [id]: { loading, error, data, latencyMs, fetchedAt } }
+        let savedServers = [];      // { id, address, edition, label } ※Cookieにはこの4項目のみ保存
+        let statusCache = {};       // { [id]: { loading, error, data, fetchedAt } }
         let selectedServerId = null;
         let playerSearchQuery = '';
+        let currentPlayerPage = 1;
+        const PLAYERS_PER_PAGE = 50;
         let autoRefreshEnabled = false;
         let autoRefreshTimer = null;
         let pendingDeleteId = null;
 
+        // Mojang公式スキンテクスチャのメモリキャッシュ（Cookieには保存しない）
+        const officialSkinCache = new Map();
+
         /**
-         * サーバー登録リストをCookieとLocalStorageに保存
+         * サーバー登録リスト（アドレス情報のみ）をCookieに保存
          */
         function persistServers() {
             const minimalList = savedServers.map(s => ({
@@ -349,8 +358,70 @@
         }
 
         // ==========================================
-        // 実マイクラサーバーAPI通信処理
+        // 実マイクラサーバーAPI通信処理 (Java / Bedrock / Multi対応)
         // ==========================================
+        async function fetchSingleEditionEndpoint(address, edition) {
+            const startTime = performance.now();
+            const encodedAddr = encodeURIComponent(address.trim());
+            const isBedrock = edition === 'bedrock';
+
+            const primaryUrl = isBedrock
+                ? `https://api.mcsrvstat.us/bedrock/3/${encodedAddr}`
+                : `https://api.mcsrvstat.us/3/${encodedAddr}`;
+
+            const fallbackUrl = isBedrock
+                ? `https://api.mcstatus.io/v2/status/bedrock/${encodedAddr}`
+                : `https://api.mcstatus.io/v2/status/java/${encodedAddr}`;
+
+            // 両APIから並列取得して、より多くのプレイヤーリストや詳細情報を補完
+            const [res1, res2] = await Promise.allSettled([
+                fetch(primaryUrl, { cache: 'no-store' }).then(async r => {
+                    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+                    const json = await r.json();
+                    return normalizeMcsrvstatData(json, { address, edition }, Math.round(performance.now() - startTime));
+                }),
+                fetch(fallbackUrl, { cache: 'no-store' }).then(async r => {
+                    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+                    const json = await r.json();
+                    return normalizeMcstatusIoData(json, { address, edition }, Math.round(performance.now() - startTime));
+                })
+            ]);
+
+            const d1 = res1.status === 'fulfilled' ? res1.value : null;
+            const d2 = res2.status === 'fulfilled' ? res2.value : null;
+
+            if (!d1 && !d2) {
+                throw new Error('Both status APIs failed');
+            }
+
+            const base = (d1 && d1.online) ? d1 : ((d2 && d2.online) ? d2 : (d1 || d2));
+            const secondary = base === d1 ? d2 : d1;
+
+            // 両方のAPIから返されたプレイヤーリストを重複排除して統合
+            const mergedMap = new Map();
+            const addPlayers = (list, sourceEdition) => {
+                if (!Array.isArray(list)) return;
+                for (const p of list) {
+                    const key = p.name.toLowerCase();
+                    if (!mergedMap.has(key)) {
+                        mergedMap.set(key, { ...p, platform: sourceEdition });
+                    } else if (!mergedMap.get(key).uuid && p.uuid) {
+                        mergedMap.get(key).uuid = p.uuid;
+                    }
+                }
+            };
+            addPlayers(base?.playerList, edition);
+            addPlayers(secondary?.playerList, edition);
+
+            return {
+                ...base,
+                playerList: Array.from(mergedMap.values()),
+                detectedTps: base.detectedTps ?? secondary?.detectedTps ?? null,
+                plugins: base.plugins.length > 0 ? base.plugins : (secondary?.plugins || []),
+                mods: base.mods.length > 0 ? base.mods : (secondary?.mods || [])
+            };
+        }
+
         async function fetchServerStatus(server) {
             const id = server.id;
             statusCache[id] = {
@@ -361,37 +432,68 @@
             renderServerList();
             if (selectedServerId === id) renderDetailPanel();
 
-            const startTime = performance.now();
-            const encodedAddr = encodeURIComponent(server.address.trim());
-            const isBedrock = server.edition === 'bedrock';
-
-            // プライマリAPI: mcsrvstat.us v3
-            const primaryUrl = isBedrock
-                ? `https://api.mcsrvstat.us/bedrock/3/${encodedAddr}`
-                : `https://api.mcsrvstat.us/3/${encodedAddr}`;
-
-            // フォールバックAPI: mcstatus.io v2
-            const fallbackUrl = isBedrock
-                ? `https://api.mcstatus.io/v2/status/bedrock/${encodedAddr}`
-                : `https://api.mcstatus.io/v2/status/java/${encodedAddr}`;
-
             try {
                 let normalizedData = null;
 
-                try {
-                    const res = await fetch(primaryUrl, { cache: 'no-store' });
-                    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-                    const raw = await res.json();
-                    const elapsed = Math.round(performance.now() - startTime);
-                    normalizedData = normalizeMcsrvstatData(raw, server, elapsed);
-                } catch (primaryErr) {
-                    // フォールバックAPIを試行
-                    const fbStart = performance.now();
-                    const fbRes = await fetch(fallbackUrl, { cache: 'no-store' });
-                    if (!fbRes.ok) throw new Error(`Fallback HTTP ${fbRes.status}`);
-                    const fbRaw = await fbRes.json();
-                    const fbElapsed = Math.round(performance.now() - fbStart);
-                    normalizedData = normalizeMcstatusIoData(fbRaw, server, fbElapsed);
+                if (server.edition === 'multi') {
+                    // マルチプレイ（Java版 + 統合版 両対応）の場合は両方を同時取得して統合
+                    const [javaRes, bedrockRes] = await Promise.allSettled([
+                        fetchSingleEditionEndpoint(server.address, 'java'),
+                        fetchSingleEditionEndpoint(server.address, 'bedrock')
+                    ]);
+
+                    const jData = javaRes.status === 'fulfilled' ? javaRes.value : null;
+                    const bData = bedrockRes.status === 'fulfilled' ? bedrockRes.value : null;
+
+                    if (!jData && !bData) {
+                        throw new Error('Java/Bedrock両方の取得に失敗しました');
+                    }
+
+                    const jOnline = Boolean(jData?.online);
+                    const bOnline = Boolean(bData?.online);
+                    const anyOnline = jOnline || bOnline;
+                    const primary = jOnline ? jData : (bOnline ? bData : (jData || bData));
+
+                    // JavaとBedrockのプレイヤーリストを統合（重複除外）
+                    const playerMap = new Map();
+                    if (jData?.playerList) {
+                        jData.playerList.forEach(p => playerMap.set(p.name.toLowerCase(), { ...p, platform: 'java' }));
+                    }
+                    if (bData?.playerList) {
+                        bData.playerList.forEach(p => {
+                            const key = p.name.toLowerCase();
+                            if (!playerMap.has(key)) {
+                                playerMap.set(key, { ...p, platform: 'bedrock' });
+                            }
+                        });
+                    }
+
+                    // 同一サーバー(Geyser)の場合はJava側の合計人数を基準にしつつ、別ポート稼働で合計が異なる場合は大きい方を採用
+                    const totalOnline = Math.max(jData?.playersOnline || 0, bData?.playersOnline || 0);
+                    const totalMax = Math.max(jData?.playersMax || 0, bData?.playersMax || 0);
+
+                    normalizedData = {
+                        ...primary,
+                        online: anyOnline,
+                        isMulti: true,
+                        multiDetails: {
+                            java: jData,
+                            bedrock: bData
+                        },
+                        version: [
+                            jOnline ? `JE: ${jData.version}` : null,
+                            bOnline ? `BE: ${bData.version}` : null
+                        ].filter(Boolean).join(' / ') || primary.version,
+                        playersOnline: totalOnline,
+                        playersMax: totalMax,
+                        playerList: Array.from(playerMap.values()),
+                        pingMs: jOnline && bOnline
+                            ? Math.round((jData.pingMs + bData.pingMs) / 2)
+                            : primary.pingMs,
+                        detectedTps: jData?.detectedTps ?? bData?.detectedTps ?? null
+                    };
+                } else {
+                    normalizedData = await fetchSingleEditionEndpoint(server.address, server.edition);
                 }
 
                 statusCache[id] = {
@@ -582,6 +684,7 @@
             if (existing) {
                 selectedServerId = existing.id;
                 playerSearchQuery = '';
+                currentPlayerPage = 1;
                 fetchServerStatus(existing);
                 showToast(`「${address}」は既に登録済みのため最新情報を取得します`);
                 return;
@@ -597,6 +700,7 @@
             savedServers.unshift(newServer);
             selectedServerId = newServer.id;
             playerSearchQuery = '';
+            currentPlayerPage = 1;
 
             persistServers();
             renderServerList();
@@ -608,6 +712,7 @@
         function selectServer(id) {
             selectedServerId = id;
             playerSearchQuery = '';
+            currentPlayerPage = 1;
             renderServerList();
             renderDetailPanel();
 
@@ -692,7 +797,7 @@
 
                 const iconSrc = data?.icon || DEFAULT_ICON_SVG;
                 const title = srv.label || srv.address;
-                const editionLabel = srv.edition === 'bedrock' ? 'BE' : 'JE';
+                const editionLabel = srv.edition === 'bedrock' ? 'BE' : (srv.edition === 'multi' ? 'JE+BE' : 'JE');
 
                 // ステータスバッジ
                 let statusBadge = '';
@@ -854,6 +959,9 @@
             const filteredPlayers = data.playerList.filter(p =>
                 p.name.toLowerCase().includes(playerSearchQuery.toLowerCase())
             );
+            const totalFiltered = filteredPlayers.length;
+            const totalPages = Math.max(1, Math.ceil(totalFiltered / PLAYERS_PER_PAGE));
+            if (currentPlayerPage > totalPages) currentPlayerPage = totalPages;
 
             // 参加率パーセンテージ
             const fillPercent = data.playersMax > 0
@@ -884,16 +992,20 @@
                     tpsSubText = 'サーバー応答情報から取得（高負荷）';
                 }
             } else {
-                // 標準Minecraft SLPパケットはTPSを含まないため、応答Ping品質と併せて明示
-                tpsDisplayValue = '非公開 (SLP制限)';
-                tpsBarPercent = data.pingMs < 150 ? 95 : (data.pingMs < 350 ? 70 : 40);
-                tpsColorClass = 'text-sky-400';
-                tpsBarColor = 'bg-sky-400';
-                tpsSubText = '※標準Ping仕様のため内部TPS非公開（Ping応答正常）';
+                tpsDisplayValue = '非公開 (SLP非対応)';
+                tpsBarPercent = 100;
+                tpsColorClass = 'text-slate-300';
+                tpsBarColor = 'bg-slate-600';
+                tpsSubText = 'マイクラ標準通信仕様では内部TPSは送信されません';
             }
 
-            // Ping品質カラー
-            const pingColor = data.pingMs < 120 ? 'text-mc-emerald' : (data.pingMs < 280 ? 'text-amber-400' : 'text-red-400');
+            // API応答時間品質カラー
+            const pingColor = data.pingMs < 250 ? 'text-mc-emerald' : (data.pingMs < 600 ? 'text-amber-400' : 'text-red-400');
+
+            // エディションバッジテキスト
+            const editionBadgeText = srv.edition === 'bedrock'
+                ? 'Bedrock (統合版)'
+                : (srv.edition === 'multi' ? 'マルチプレイ (Java + 統合版)' : 'Java Edition');
 
             wrapper.innerHTML = `
                 <div class="bg-bg-surface border border-bg-border rounded-2xl p-5 sm:p-6 space-y-6 shadow-2xl">
@@ -911,7 +1023,7 @@
                                         ONLINE
                                     </span>
                                     <span class="text-[11px] font-mono font-bold px-2 py-0.5 rounded-md bg-bg-elevated text-slate-300 border border-bg-border">
-                                        ${srv.edition === 'bedrock' ? 'Bedrock (統合版)' : 'Java Edition'}
+                                        ${editionBadgeText}
                                     </span>
                                     ${data.software ? `<span class="text-[11px] font-mono font-bold px-2 py-0.5 rounded-md bg-sky-500/15 text-sky-300 border border-sky-500/30">${escapeHTML(data.software)}</span>` : ''}
                                 </div>
@@ -948,7 +1060,31 @@
                         </div>
                     </div>
 
-                    <!-- 2. 主要メトリクスグリッド (参加人数 / 応答速度Ping / TPS / バージョン) -->
+                    ${data.isMulti && data.multiDetails ? `
+                        <!-- マルチプレイ (Java + 統合版) 個別ステータスバー -->
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-xs">
+                            <div class="bg-bg-base border border-bg-border rounded-xl p-3 flex items-center justify-between">
+                                <div class="flex items-center gap-2">
+                                    <span class="px-2 py-0.5 rounded bg-emerald-500/15 text-emerald-400 font-mono font-bold text-[11px]">Java版</span>
+                                    <span class="font-mono text-slate-300 truncate max-w-[140px]">${data.multiDetails.java?.online ? escapeHTML(data.multiDetails.java.version) : 'オフライン/未応答'}</span>
+                                </div>
+                                <span class="font-mono font-bold ${data.multiDetails.java?.online ? 'text-mc-emerald' : 'text-slate-500'}">
+                                    ${data.multiDetails.java?.online ? `${data.multiDetails.java.playersOnline}人 (Port:${data.multiDetails.java.port})` : 'OFFLINE'}
+                                </span>
+                            </div>
+                            <div class="bg-bg-base border border-bg-border rounded-xl p-3 flex items-center justify-between">
+                                <div class="flex items-center gap-2">
+                                    <span class="px-2 py-0.5 rounded bg-sky-500/15 text-sky-400 font-mono font-bold text-[11px]">統合版 (BE)</span>
+                                    <span class="font-mono text-slate-300 truncate max-w-[140px]">${data.multiDetails.bedrock?.online ? escapeHTML(data.multiDetails.bedrock.version) : 'オフライン/未応答'}</span>
+                                </div>
+                                <span class="font-mono font-bold ${data.multiDetails.bedrock?.online ? 'text-sky-400' : 'text-slate-500'}">
+                                    ${data.multiDetails.bedrock?.online ? `${data.multiDetails.bedrock.playersOnline}人 (Port:${data.multiDetails.bedrock.port})` : 'OFFLINE'}
+                                </span>
+                            </div>
+                        </div>
+                    ` : ''}
+
+                    <!-- 2. 主要メトリクスグリッド (参加人数 / TPS / API応答時間) -->
                     <div class="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
                         <!-- 参加人数 -->
                         <div class="bg-bg-base border border-bg-border rounded-xl p-3.5 space-y-2">
@@ -968,10 +1104,14 @@
                         <!-- TPS & パフォーマンス -->
                         <div class="bg-bg-base border border-bg-border rounded-xl p-3.5 space-y-2">
                             <div class="flex items-center justify-between text-xs text-slate-400">
-                                <span class="font-bold flex items-center gap-1.5"><i class="fa-solid fa-gauge-high text-sky-400"></i> サーバー TPS</span>
-                                <span class="font-mono text-[10px] text-slate-500">基準 20.0</span>
+                                <span class="font-bold flex items-center gap-1.5">
+                                    <i class="fa-solid fa-gauge-high text-sky-400"></i> サーバー TPS
+                                </span>
+                                <span class="text-[10px] text-slate-400 underline decoration-dotted cursor-help" title="Minecraft標準のServer List Ping(SLP)通信には内部の処理速度(TPS)が含まれない仕様のため、サーバー側がMOTDやプラグインで公開していない限り「非公開」となります。">
+                                    なぜ非公開？
+                                </span>
                             </div>
-                            <div class="text-lg sm:text-xl font-black font-mono ${tpsColorClass} truncate">
+                            <div class="text-base sm:text-lg font-black font-mono ${tpsColorClass} truncate">
                                 ${tpsDisplayValue}
                             </div>
                             <div class="w-full h-1.5 bg-bg-elevated rounded-full overflow-hidden">
@@ -980,17 +1120,22 @@
                             <p class="text-[10px] text-slate-400 leading-tight">${tpsSubText}</p>
                         </div>
 
-                        <!-- 応答時間 (Ping) & バージョン -->
+                        <!-- API応答時間 & バージョン -->
                         <div class="bg-bg-base border border-bg-border rounded-xl p-3.5 space-y-2">
                             <div class="flex items-center justify-between text-xs text-slate-400">
-                                <span class="font-bold flex items-center gap-1.5"><i class="fa-solid fa-signal text-amber-400"></i> API応答 / バージョン</span>
+                                <span class="font-bold flex items-center gap-1.5">
+                                    <i class="fa-solid fa-signal text-amber-400"></i> API応答時間
+                                </span>
+                                <span class="text-[10px] text-slate-400 underline decoration-dotted cursor-help" title="ブラウザから外部ステータスAPIを経由して対象マイクラサーバーへ問い合わせを行い、結果が返ってくるまでの合計通信時間（ミリ秒）です。">
+                                    API応答とは？
+                                </span>
                             </div>
                             <div class="flex items-baseline justify-between gap-2">
                                 <span class="text-xl font-black font-mono ${pingColor}">${data.pingMs} <span class="text-xs font-normal">ms</span></span>
                                 <span class="text-xs font-mono font-bold text-slate-200 truncate max-w-[130px]" title="${escapeHTML(data.version)}">${escapeHTML(data.version)}</span>
                             </div>
-                            <div class="text-[11px] font-mono text-slate-400 truncate">
-                                Protocol: ${escapeHTML(data.protocol)}
+                            <div class="text-[10px] text-slate-400 leading-tight truncate">
+                                外部API経由の取得レイテンシ / Proto: ${escapeHTML(data.protocol)}
                             </div>
                         </div>
                     </div>
@@ -1008,29 +1153,36 @@
                         </div>
                     </div>
 
-                    <!-- 4. 現在ログイン中のプレイヤー一覧 -->
+                    <!-- 4. 現在ログイン中のプレイヤー一覧 (検索inputを独立させてフォーカス切れを防止) -->
                     <div class="space-y-3">
                         <div class="flex flex-wrap items-center justify-between gap-2">
                             <h3 class="text-xs font-bold uppercase tracking-wider text-slate-300 flex items-center gap-2">
                                 <i class="fa-solid fa-user-group text-mc-emerald"></i>
                                 <span>現在参加しているユーザー</span>
-                                <span class="px-2 py-0.5 rounded-full bg-mc-emerald/15 text-mc-emerald font-mono">
-                                    ${data.playerList.length > 0 ? `${data.playerList.length}名表示中` : `${data.playersOnline}名オンライン`}
+                                <span id="player-count-pill" class="px-2 py-0.5 rounded-full bg-mc-emerald/15 text-mc-emerald font-mono">
+                                    ${data.playerList.length > 0 ? `${data.playerList.length}名取得済` : `${data.playersOnline}名オンライン`}
                                 </span>
                             </h3>
 
-                            ${data.playerList.length > 5 ? `
-                                <div class="relative w-full sm:w-56">
+                            ${data.playerList.length > 0 ? `
+                                <div class="relative w-full sm:w-64">
                                     <i class="fa-solid fa-magnifying-glass text-slate-500 text-xs absolute left-3 top-1/2 -translate-y-1/2"></i>
-                                    <input type="text" value="${escapeAttr(playerSearchQuery)}"
+                                    <input type="text" id="player-search-input" value="${escapeAttr(playerSearchQuery)}"
                                         oninput="handlePlayerSearch(this.value)"
                                         placeholder="プレイヤー名で検索..."
-                                        class="w-full bg-bg-base border border-bg-border focus:border-mc-emerald rounded-lg pl-8 pr-3 py-1.5 text-xs text-white placeholder-slate-500 outline-none">
+                                        class="w-full bg-bg-base border border-bg-border focus:border-mc-emerald rounded-lg pl-8 pr-8 py-1.5 text-xs text-white placeholder-slate-500 outline-none">
+                                    <button type="button" id="player-search-clear" onclick="clearPlayerSearch()"
+                                        class="${playerSearchQuery ? '' : 'hidden'} absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white text-xs cursor-pointer">
+                                        <i class="fa-solid fa-xmark"></i>
+                                    </button>
                                 </div>
                             ` : ''}
                         </div>
 
-                        ${renderOnlinePlayersSection(data)}
+                        <!-- このコンテナの中身だけを検索・ページ切替時に再描画する -->
+                        <div id="players-list-area">
+                            ${buildPlayersAreaHTML(data)}
+                        </div>
                     </div>
 
                     <!-- 5. ネットワーク・技術詳細 (IP / ポート / Query / プラグイン / MOD) -->
@@ -1082,12 +1234,15 @@
                     </div>
                 </div>
             `;
+
+            // 表示中のプレイヤーの公式Mojangスキン顔画像を非同期でCanvas描画
+            hydrateOfficialPlayerHeads();
         }
 
         /**
-         * オンラインプレイヤー一覧グリッドまたは非公開時の案内メッセージを生成
+         * オンラインプレイヤー一覧グリッド＋1ページ50人のページネーションHTMLを生成
          */
-        function renderOnlinePlayersSection(data) {
+        function buildPlayersAreaHTML(data) {
             if (data.playersOnline === 0) {
                 return `
                     <div class="bg-bg-base/70 border border-bg-border rounded-xl p-6 text-center text-xs text-slate-400">
@@ -1102,7 +1257,7 @@
                         <i class="fa-solid fa-eye-slash text-amber-400 text-base mt-0.5"></i>
                         <div class="space-y-1">
                             <p class="font-bold text-slate-200">現在 ${data.playersOnline.toLocaleString()} 人がオンラインですが、個別のプレイヤー名はサーバー側で非公開に設定されています</p>
-                            <p class="text-slate-400">大規模ネットワーク（Hypixelなど）や <code class="font-mono text-slate-300">hide-online-players=true</code> 設定のサーバーでは、人数のみが公開されます。</p>
+                            <p class="text-slate-400">大規模ネットワークや <code class="font-mono text-slate-300">hide-online-players=true</code> 設定のサーバーでは、人数のみが公開されます。</p>
                         </div>
                     </div>
                 `;
@@ -1114,44 +1269,330 @@
 
             if (filtered.length === 0) {
                 return `
-                    <div class="bg-bg-base/70 border border-bg-border rounded-xl p-4 text-center text-xs text-slate-400">
+                    <div class="bg-bg-base/70 border border-bg-border rounded-xl p-6 text-center text-xs text-slate-400">
                         「${escapeHTML(playerSearchQuery)}」に一致するプレイヤーが見つかりません。
                     </div>
                 `;
             }
 
-            const remainingHidden = data.playersOnline - data.playerList.length;
+            const totalItems = filtered.length;
+            const totalPages = Math.max(1, Math.ceil(totalItems / PLAYERS_PER_PAGE));
+            if (currentPlayerPage > totalPages) currentPlayerPage = totalPages;
+            if (currentPlayerPage < 1) currentPlayerPage = 1;
+
+            const startIdx = (currentPlayerPage - 1) * PLAYERS_PER_PAGE;
+            const endIdx = Math.min(startIdx + PLAYERS_PER_PAGE, totalItems);
+            const pagePlayers = filtered.slice(startIdx, endIdx);
+
+            const remainingServerHidden = data.playersOnline - data.playerList.length;
+
+            // ページ番号ボタンの生成
+            let paginationHtml = '';
+            if (totalPages > 1) {
+                const pageButtons = getPaginationRange(currentPlayerPage, totalPages).map(item => {
+                    if (item === '...') {
+                        return `<span class="px-2 py-1 text-xs text-slate-500">...</span>`;
+                    }
+                    const isCurrent = item === currentPlayerPage;
+                    return `
+                        <button type="button" onclick="changePlayerPage(${item})"
+                            class="min-w-[32px] h-8 px-2 rounded-lg text-xs font-mono font-bold transition cursor-pointer ${
+                                isCurrent
+                                    ? 'bg-mc-emerald text-slate-950 shadow-sm'
+                                    : 'bg-bg-base hover:bg-bg-elevated text-slate-300 border border-bg-border'
+                            }">
+                            ${item}
+                        </button>
+                    `;
+                }).join('');
+
+                paginationHtml = `
+                    <div class="flex flex-wrap items-center justify-between gap-2 pt-3 border-t border-bg-border/60">
+                        <div class="text-[11px] font-mono text-slate-400">
+                            ${(startIdx + 1).toLocaleString()} - ${endIdx.toLocaleString()}人目を表示中（全 ${totalItems.toLocaleString()}人 / 1ページ50人）
+                        </div>
+                        <div class="flex items-center gap-1">
+                            <button type="button" onclick="changePlayerPage(${currentPlayerPage - 1})" ${currentPlayerPage === 1 ? 'disabled' : ''}
+                                class="px-2.5 h-8 rounded-lg text-xs font-bold bg-bg-base hover:bg-bg-elevated text-slate-300 border border-bg-border disabled:opacity-30 disabled:pointer-events-none cursor-pointer">
+                                <i class="fa-solid fa-chevron-left mr-1"></i>前へ
+                            </button>
+                            ${pageButtons}
+                            <button type="button" onclick="changePlayerPage(${currentPlayerPage + 1})" ${currentPlayerPage === totalPages ? 'disabled' : ''}
+                                class="px-2.5 h-8 rounded-lg text-xs font-bold bg-bg-base hover:bg-bg-elevated text-slate-300 border border-bg-border disabled:opacity-30 disabled:pointer-events-none cursor-pointer">
+                                次へ<i class="fa-solid fa-chevron-right ml-1"></i>
+                            </button>
+                        </div>
+                    </div>
+                `;
+            } else {
+                paginationHtml = `
+                    <div class="flex items-center justify-between pt-2 text-[11px] font-mono text-slate-400">
+                        <span>全 ${totalItems.toLocaleString()}人を表示中（1ページ最大50人）</span>
+                        <span class="text-slate-500">Mojang公式テクスチャAPI描画</span>
+                    </div>
+                `;
+            }
 
             return `
-                <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 max-h-72 overflow-y-auto pr-1">
-                    ${filtered.map(player => {
-                        const identifier = player.uuid || player.name;
-                        const avatarUrl = `https://mc-heads.net/avatar/${encodeURIComponent(identifier)}/32`;
-                        return `
-                            <div onclick="copyText('${escapeAttr(player.name)}')" title="クリックでMCIDをコピー${player.uuid ? ' (UUID: ' + player.uuid + ')' : ''}"
-                                class="flex items-center gap-2.5 p-2 rounded-xl bg-bg-base hover:bg-bg-elevated border border-bg-border hover:border-mc-emerald/50 transition cursor-pointer group">
-                                <img src="${avatarUrl}"
-                                     onerror="this.onerror=null; this.src='https://mc-heads.net/avatar/Steve/32';"
-                                     alt="${escapeHTML(player.name)}"
-                                     class="w-7 h-7 rounded-md bg-bg-elevated pixelated shrink-0">
-                                <span class="text-xs font-mono font-semibold text-slate-200 group-hover:text-white truncate">
-                                    ${escapeHTML(player.name)}
-                                </span>
-                            </div>
-                        `;
-                    }).join('')}
+                <div class="space-y-3">
+                    <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+                        ${pagePlayers.map(player => {
+                            const safeName = escapeHTML(player.name);
+                            const safeUuid = escapeAttr(player.uuid || '');
+                            const safeNameAttr = escapeAttr(player.name);
+                            const isBedrockUser = player.platform === 'bedrock' || player.name.startsWith('.');
+                            return `
+                                <div onclick="copyText('${safeNameAttr}')" title="クリックでMCIDをコピー${player.uuid ? ' (UUID: ' + player.uuid + ')' : ''}"
+                                    class="flex items-center gap-2.5 p-2 rounded-xl bg-bg-base hover:bg-bg-elevated border border-bg-border hover:border-mc-emerald/50 transition cursor-pointer group">
+                                    <canvas data-mc-head="true" data-username="${safeNameAttr}" data-uuid="${safeUuid}" data-bedrock="${isBedrockUser}"
+                                        width="32" height="32"
+                                        class="w-7 h-7 rounded-md bg-bg-elevated pixelated shrink-0 border border-bg-border/50"></canvas>
+                                    <div class="min-w-0 flex-1">
+                                        <div class="text-xs font-mono font-semibold text-slate-200 group-hover:text-white truncate">
+                                            ${safeName}
+                                        </div>
+                                        ${isBedrockUser ? `<div class="text-[9px] font-mono text-sky-400 leading-none mt-0.5">BE</div>` : ''}
+                                    </div>
+                                </div>
+                            `;
+                        }).join('')}
+                    </div>
+
+                    ${paginationHtml}
+
+                    ${remainingServerHidden > 0 ? `
+                        <p class="text-[11px] text-amber-400/90 bg-amber-950/20 border border-amber-900/30 rounded-lg px-3 py-2">
+                            <i class="fa-solid fa-circle-info mr-1"></i>
+                            サーバー本体が外部応答（SLPサンプル）で返すプレイヤー名の上限仕様により、他 ${remainingServerHidden.toLocaleString()} 人の個別名はサーバーから送信されていません。取得できた全員（${data.playerList.length}名）をすべて表示しています。
+                        </p>
+                    ` : ''}
                 </div>
-                ${remainingHidden > 0 ? `
-                    <p class="text-[11px] text-slate-500 text-right">
-                        ※サーバーのサンプル応答上限により、他 ${remainingHidden.toLocaleString()} 人のプレイヤー名は省略されています
-                    </p>
-                ` : ''}
             `;
         }
 
+        function getPaginationRange(current, total) {
+            if (total <= 7) {
+                return Array.from({ length: total }, (_, i) => i + 1);
+            }
+            if (current <= 4) {
+                return [1, 2, 3, 4, 5, '...', total];
+            }
+            if (current >= total - 3) {
+                return [1, '...', total - 4, total - 3, total - 2, total - 1, total];
+            }
+            return [1, '...', current - 1, current, current + 1, '...', total];
+        }
+
+        /**
+         * 検索入力時：input要素を再描画せず、プレイヤーリスト部分だけを更新する（フォーカス維持）
+         */
         function handlePlayerSearch(val) {
             playerSearchQuery = val;
-            renderDetailPanel();
+            currentPlayerPage = 1;
+
+            const clearBtn = document.getElementById('player-search-clear');
+            if (clearBtn) {
+                clearBtn.classList.toggle('hidden', !val);
+            }
+
+            updatePlayersAreaOnly();
+        }
+
+        function clearPlayerSearch() {
+            const input = document.getElementById('player-search-input');
+            if (input) {
+                input.value = '';
+                input.focus();
+            }
+            handlePlayerSearch('');
+        }
+
+        function changePlayerPage(page) {
+            currentPlayerPage = page;
+            updatePlayersAreaOnly();
+            const area = document.getElementById('players-list-area');
+            if (area) {
+                area.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            }
+        }
+
+        function updatePlayersAreaOnly() {
+            const srv = savedServers.find(s => s.id === selectedServerId);
+            if (!srv) return;
+            const state = statusCache[srv.id];
+            if (!state || !state.data) return;
+
+            const area = document.getElementById('players-list-area');
+            if (area) {
+                area.innerHTML = buildPlayersAreaHTML(state.data);
+                hydrateOfficialPlayerHeads();
+            }
+        }
+
+        // ==========================================
+        // Mojang公式API (SessionServer) からスキンPNGを取得しCanvasに顔(8x8+帽子)を描画
+        // ==========================================
+        async function hydrateOfficialPlayerHeads() {
+            const canvases = document.querySelectorAll('canvas[data-mc-head="true"]');
+            canvases.forEach(canvas => {
+                drawMojangOfficialHead(canvas);
+            });
+        }
+
+        async function drawMojangOfficialHead(canvas) {
+            const username = canvas.dataset.username;
+            const uuid = canvas.dataset.uuid;
+            const isBedrock = canvas.dataset.bedrock === 'true';
+            const ctx = canvas.getContext('2d');
+            ctx.imageSmoothingEnabled = false;
+
+            // まずデフォルトのSteve風ピクセル顔を仮描画
+            drawDefaultSteveCanvas(ctx);
+
+            if (!username || isBedrock) {
+                // 統合版プレイヤーはMojang Java公式UUIDを持たないためフォールバック取得
+                loadFallbackAvatarToCanvas(ctx, username);
+                return;
+            }
+
+            try {
+                const skinTextureUrl = await resolveOfficialMojangSkinUrl(username, uuid);
+                if (skinTextureUrl) {
+                    const loaded = await renderSkinPngHeadToCanvas(ctx, skinTextureUrl);
+                    if (loaded) return;
+                }
+            } catch (e) {
+                // CORSやレート制限時はフォールバックへ
+            }
+
+            loadFallbackAvatarToCanvas(ctx, uuid || username);
+        }
+
+        /**
+         * Mojang公式API (api.mojang.com -> sessionserver.mojang.com) から公式スキンPNGのURLを解決
+         */
+        async function resolveOfficialMojangSkinUrl(username, providedUuid) {
+            const cacheKey = (providedUuid || username).toLowerCase();
+            if (officialSkinCache.has(cacheKey)) {
+                return officialSkinCache.get(cacheKey);
+            }
+
+            let cleanUuid = providedUuid ? providedUuid.replace(/-/g, '') : null;
+
+            // UUIDが未取得の場合はMojang公式ユーザー名解決APIを使用
+            if (!cleanUuid) {
+                const profileRes = await fetchJsonWithCorsFallback(
+                    `https://api.mojang.com/users/profiles/minecraft/${encodeURIComponent(username)}`
+                );
+                if (profileRes && profileRes.id) {
+                    cleanUuid = profileRes.id.replace(/-/g, '');
+                }
+            }
+
+            if (!cleanUuid) {
+                officialSkinCache.set(cacheKey, null);
+                return null;
+            }
+
+            // Mojang公式 SessionServer API から Base64 テクスチャペイロードを取得
+            const sessionRes = await fetchJsonWithCorsFallback(
+                `https://sessionserver.mojang.com/session/minecraft/profile/${cleanUuid}`
+            );
+
+            if (sessionRes && Array.isArray(sessionRes.properties)) {
+                const texProp = sessionRes.properties.find(p => p.name === 'textures');
+                if (texProp && texProp.value) {
+                    const decodedJson = JSON.parse(atob(texProp.value));
+                    const skinUrl = decodedJson?.textures?.SKIN?.url || null;
+                    if (skinUrl) {
+                        // https化
+                        const secureUrl = skinUrl.replace(/^http:\/\//i, 'https://');
+                        officialSkinCache.set(cacheKey, secureUrl);
+                        return secureUrl;
+                    }
+                }
+            }
+
+            officialSkinCache.set(cacheKey, null);
+            return null;
+        }
+
+        /**
+         * Mojang公式APIに直接アクセスし、ブラウザCORS制限がかかった場合のみCORS中継経由で公式APIを取得
+         */
+        async function fetchJsonWithCorsFallback(targetUrl) {
+            try {
+                const direct = await fetch(targetUrl);
+                if (direct.ok) return await direct.json();
+            } catch (e) {
+                // ブラウザのCORS制限時は中継経由でMojang公式APIのJSONを取得
+            }
+
+            try {
+                const proxied = await fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`);
+                if (proxied.ok) return await proxied.json();
+            } catch (e) {}
+
+            return null;
+        }
+
+        /**
+         * 公式 textures.minecraft.net の64x64スキンPNGから顔(8,8,8,8)と帽子レイヤー(40,8,8,8)を切り出して描画
+         */
+        function renderSkinPngHeadToCanvas(ctx, skinUrl) {
+            return new Promise((resolve) => {
+                const img = new Image();
+                img.crossOrigin = 'Anonymous';
+                img.onload = () => {
+                    try {
+                        ctx.clearRect(0, 0, 32, 32);
+                        ctx.imageSmoothingEnabled = false;
+                        // 1層目: 顔ベース (x:8, y:8, w:8, h:8)
+                        ctx.drawImage(img, 8, 8, 8, 8, 0, 0, 32, 32);
+                        // 2層目: ヘルメット・帽子レイヤー (x:40, y:8, w:8, h:8)
+                        ctx.drawImage(img, 40, 8, 8, 8, 0, 0, 32, 32);
+                        resolve(true);
+                    } catch (err) {
+                        resolve(false);
+                    }
+                };
+                img.onerror = () => resolve(false);
+                img.src = skinUrl;
+            });
+        }
+
+        function loadFallbackAvatarToCanvas(ctx, identifier) {
+            if (!identifier) return;
+            const img = new Image();
+            img.crossOrigin = 'Anonymous';
+            img.onload = () => {
+                ctx.clearRect(0, 0, 32, 32);
+                ctx.imageSmoothingEnabled = false;
+                ctx.drawImage(img, 0, 0, 32, 32);
+            };
+            img.src = `https://mc-heads.net/avatar/${encodeURIComponent(identifier)}/32`;
+        }
+
+        function drawDefaultSteveCanvas(ctx) {
+            ctx.fillStyle = '#b58d72';
+            ctx.fillRect(0, 0, 32, 32);
+            // 髪
+            ctx.fillStyle = '#3b271a';
+            ctx.fillRect(0, 0, 32, 8);
+            ctx.fillRect(0, 8, 4, 4);
+            ctx.fillRect(28, 8, 4, 4);
+            // 目
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(4, 16, 4, 4);
+            ctx.fillRect(24, 16, 4, 4);
+            ctx.fillStyle = '#493896';
+            ctx.fillRect(8, 16, 4, 4);
+            ctx.fillRect(20, 16, 4, 4);
+            // 鼻・口
+            ctx.fillStyle = '#8c6249';
+            ctx.fillRect(12, 20, 8, 4);
+            ctx.fillStyle = '#5e3726';
+            ctx.fillRect(8, 24, 16, 4);
         }
 
         function toggleAutoRefresh() {
