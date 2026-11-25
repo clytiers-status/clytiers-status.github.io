@@ -384,7 +384,7 @@
   <!-- 🟣 タップ時専用・最前面のネザー粒子用キャンバス -->
   <canvas id="click-particles-canvas"></canvas>
 
-  <!-- Header -->
+  <!-- Header (上の Status ボタンは削除済み) -->
   <header class="sticky top-0 glass-nav">
     <div class="max-w-7xl mx-auto px-2 sm:px-4 h-16 flex items-center justify-between">
       <nav class="flex items-center justify-between w-full font-orbitron font-bold text-xs sm:text-sm">
@@ -399,10 +399,6 @@
         <a href="#" onclick="event.preventDefault(); switchTab('home')" class="font-black text-lg sm:text-2xl tracking-wider clytiers-gradient-logo px-1 sm:px-4">
           CLYTIERS
         </a>
-
-        <button onclick="switchTab('status')" class="nav-btn transition-colors hover:text-brand-lightPurple px-1 sm:px-3 py-1 flex items-center gap-1 text-gray-300" id="nav-status">
-          <i class="fa-solid fa-satellite-dish text-xs text-purple-400"></i><span data-i18n="nav_status">Status</span>
-        </button>
 
         <a href="https://discord.gg/VVumwrtyDP" target="_blank" rel="noopener" class="transition-colors hover:text-brand-lightPurple px-1 sm:px-3 py-1 flex items-center gap-1 text-gray-300 hidden sm:flex">
           <i class="fa-brands fa-discord text-xs text-indigo-400"></i><span>Discord</span>
@@ -491,7 +487,7 @@
           <div>
             <div class="text-[10px] font-orbitron uppercase tracking-widest text-fuchsia-400 mb-0.5">LIVE TELEMETRY & PLAYER LIST</div>
             <h3 data-i18n="home_status_cta_title" class="text-lg sm:text-xl font-black font-orbitron text-white">REALTIME SERVER STATUS</h3>
-            <p data-i18n="home_status_cta_desc" class="text-xs sm:text-sm text-gray-400">テストサーバーや参加中プレイヤー、MOTDをリアルタイムで確認できます。</p>
+            <p data-i18n="home_status_cta_desc" class="text-xs sm:text-sm text-gray-400">Java版・統合版の人数内訳や参加中プレイヤー、MOTDをリアルタイムで確認できます。</p>
           </div>
         </div>
         <button type="button" onclick="switchTab('status')" class="relative z-10 inline-flex items-center gap-2.5 bg-gradient-to-r from-purple-600 via-fuchsia-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-bold font-orbitron text-xs sm:text-sm px-6 py-3.5 rounded-xl shadow-lg shadow-purple-600/40 transition-all hover:scale-105 shrink-0 cursor-pointer">
@@ -583,6 +579,10 @@
       <!-- ステータスヘッダーバー -->
       <div class="glow-box bg-brand-card rounded-2xl p-4 sm:p-5 flex flex-wrap items-center justify-between gap-3">
         <div class="flex items-center gap-3">
+          <button type="button" onclick="switchTab('home')" class="px-3 py-2 rounded-xl bg-brand-dark hover:bg-brand-elevated text-gray-300 hover:text-white border border-brand-border text-xs font-bold flex items-center gap-1.5 cursor-pointer" title="Homeへ戻る">
+            <i class="fa-solid fa-arrow-left"></i>
+            <span>Home</span>
+          </button>
           <div class="w-11 h-11 rounded-xl bg-gradient-to-br from-purple-500 to-fuchsia-600 p-0.5 shadow-lg shrink-0">
             <div class="w-full h-full bg-brand-dark rounded-[10px] flex items-center justify-center">
               <i class="fa-solid fa-satellite-dish text-brand-lightPurple text-lg"></i>
@@ -591,9 +591,9 @@
           <div>
             <div class="flex items-center gap-2">
               <h2 class="text-base sm:text-lg font-black font-orbitron tracking-wide text-white">MC LIVE MONITOR</h2>
-              <span class="text-[10px] font-orbitron font-bold px-2 py-0.5 rounded-full bg-brand-purple/20 text-brand-lightPurple border border-brand-purple/40">REALTIME API</span>
+              <span class="text-[10px] font-orbitron font-bold px-2 py-0.5 rounded-full bg-brand-purple/20 text-brand-lightPurple border border-brand-purple/40">JE & BE COUNTS</span>
             </div>
-            <p class="text-xs text-gray-400">実サーバー通信ステータス・参加プレイヤー・MOTD監視</p>
+            <p class="text-xs text-gray-400">Java版・統合版の参加人数内訳・参加プレイヤー・MOTD監視</p>
           </div>
         </div>
 
@@ -614,7 +614,7 @@
 
         <!-- 左カラム (5カラム) -->
         <div class="lg:col-span-5 space-y-5">
-          <!-- サーバー追加カード -->
+          <!-- サーバー追加カード（表示メモ名なし・アドレスのみ） -->
           <div class="glow-box bg-brand-card rounded-2xl p-4 sm:p-5 space-y-3.5">
             <div class="flex items-center justify-between">
               <h3 class="text-sm font-bold font-orbitron text-white flex items-center gap-2">
@@ -624,22 +624,15 @@
               <span class="text-[11px] font-mono text-gray-400">JE / BE 自動判定</span>
             </div>
 
-            <form onsubmit="handleAddServer(event)" class="space-y-2.5">
-              <div>
-                <input type="text" id="add-address-input" required
-                  placeholder="サーバーアドレス (例: mc.hypixel.net / play.example.com:25565)"
-                  class="w-full bg-brand-dark border border-brand-border focus:border-brand-lightPurple rounded-xl px-3.5 py-2.5 text-sm font-mono text-white placeholder-gray-500 outline-none transition">
-              </div>
-              <div class="flex gap-2">
-                <input type="text" id="add-label-input"
-                  placeholder="表示メモ名（省略可・例: フレンド生活鯖）"
-                  class="flex-1 bg-brand-dark border border-brand-border focus:border-brand-lightPurple rounded-xl px-3.5 py-2 text-xs text-white placeholder-gray-500 outline-none transition">
-                <button type="submit"
-                  class="px-4 py-2 rounded-xl bg-gradient-to-r from-purple-600 to-fuchsia-600 hover:from-purple-500 hover:to-fuchsia-500 text-white font-bold text-xs sm:text-sm transition shrink-0 flex items-center gap-1.5 cursor-pointer shadow-md shadow-purple-900/40">
-                  <i class="fa-solid fa-satellite-dish"></i>
-                  <span>追加・自動判定</span>
-                </button>
-              </div>
+            <form onsubmit="handleAddServer(event)" class="flex flex-col sm:flex-row gap-2">
+              <input type="text" id="add-address-input" required
+                placeholder="サーバーアドレス (例: mc.hypixel.net / play.example.com:25565)"
+                class="flex-1 bg-brand-dark border border-brand-border focus:border-brand-lightPurple rounded-xl px-3.5 py-2.5 text-sm font-mono text-white placeholder-gray-500 outline-none transition">
+              <button type="submit"
+                class="px-4 py-2.5 rounded-xl bg-gradient-to-r from-purple-600 to-fuchsia-600 hover:from-purple-500 hover:to-fuchsia-500 text-white font-bold text-xs sm:text-sm transition shrink-0 flex items-center justify-center gap-1.5 cursor-pointer shadow-md shadow-purple-900/40">
+                <i class="fa-solid fa-satellite-dish"></i>
+                <span>追加・判定</span>
+              </button>
             </form>
 
             <!-- ワンクリックお試しサーバー -->
@@ -649,16 +642,16 @@
                 <span>ワンクリック追加（実在する公開サーバーですぐ試す）:</span>
               </div>
               <div class="flex flex-wrap gap-1.5">
-                <button type="button" onclick="quickAddPreset('mc.hypixel.net', 'Hypixel Network')" class="text-[11px] font-mono px-2.5 py-1 rounded-lg bg-brand-dark hover:bg-brand-elevated text-gray-300 border border-brand-border transition cursor-pointer">
+                <button type="button" onclick="quickAddPreset('mc.hypixel.net')" class="text-[11px] font-mono px-2.5 py-1 rounded-lg bg-brand-dark hover:bg-brand-elevated text-gray-300 border border-brand-border transition cursor-pointer">
                   + mc.hypixel.net
                 </button>
-                <button type="button" onclick="quickAddPreset('play.cubecraft.net', 'CubeCraft Games')" class="text-[11px] font-mono px-2.5 py-1 rounded-lg bg-brand-dark hover:bg-brand-elevated text-gray-300 border border-brand-border transition cursor-pointer">
+                <button type="button" onclick="quickAddPreset('play.cubecraft.net')" class="text-[11px] font-mono px-2.5 py-1 rounded-lg bg-brand-dark hover:bg-brand-elevated text-gray-300 border border-brand-border transition cursor-pointer">
                   + play.cubecraft.net
                 </button>
-                <button type="button" onclick="quickAddPreset('2b2t.org', '2b2t Anarchy')" class="text-[11px] font-mono px-2.5 py-1 rounded-lg bg-brand-dark hover:bg-brand-elevated text-gray-300 border border-brand-border transition cursor-pointer">
+                <button type="button" onclick="quickAddPreset('2b2t.org')" class="text-[11px] font-mono px-2.5 py-1 rounded-lg bg-brand-dark hover:bg-brand-elevated text-gray-300 border border-brand-border transition cursor-pointer">
                   + 2b2t.org
                 </button>
-                <button type="button" onclick="quickAddPreset('play.inpvp.net', 'Mineville (BE)')" class="text-[11px] font-mono px-2.5 py-1 rounded-lg bg-brand-dark hover:bg-brand-elevated text-gray-300 border border-brand-border transition cursor-pointer">
+                <button type="button" onclick="quickAddPreset('play.inpvp.net')" class="text-[11px] font-mono px-2.5 py-1 rounded-lg bg-brand-dark hover:bg-brand-elevated text-gray-300 border border-brand-border transition cursor-pointer">
                   + play.inpvp.net
                 </button>
               </div>
@@ -789,7 +782,6 @@
       ja: {
         nav_home: "Home",
         nav_tiers: "Tiers",
-        nav_status: "Status",
         hero_badge: "OFFICIAL COMMUNITY & TIER LIST",
         hero_title: "COMPETITIVE MINECRAFT PVP TIERS",
         hero_desc: "clytiersへようこそ！公式DiscordサーバーでTierテストを受け、ランキングに挑戦しましょう。",
@@ -807,7 +799,7 @@
         test_rule_3: "使用KitはLT3まではVanilla Kitであれば自由です。HT3からはDrain Kitを使用します。",
         test_rule_4: "チート・マクロの使用禁止。キーボード2個使いも禁止です。",
         home_status_cta_title: "REALTIME SERVER STATUS",
-        home_status_cta_desc: "テストサーバーや参加中プレイヤー、MOTDをリアルタイムで確認できます。",
+        home_status_cta_desc: "Java版・統合版の人数内訳や参加中プレイヤー、MOTDをリアルタイムで確認できます。",
         home_status_cta_btn: "サーバーステータスを見る",
         kit_overall: "OVERALL",
         load_btn: "LOAD",
@@ -841,7 +833,6 @@
       en: {
         nav_home: "Home",
         nav_tiers: "Tiers",
-        nav_status: "Status",
         hero_badge: "OFFICIAL COMMUNITY & TIER LIST",
         hero_title: "COMPETITIVE MINECRAFT PVP TIERS",
         hero_desc: "Welcome to clytiers! Take tier tests on our official Discord server and climb the rankings.",
@@ -859,7 +850,7 @@
         test_rule_3: "Up to LT3, any Vanilla Kit is allowed. From HT3 onward, Drain Kit is used.",
         test_rule_4: "Cheats and macros are banned. Using two keyboards at once is also prohibited.",
         home_status_cta_title: "REALTIME SERVER STATUS",
-        home_status_cta_desc: "Check test servers, online players, and MOTD in real time.",
+        home_status_cta_desc: "Check Java/Bedrock player counts, online players, and MOTD in real time.",
         home_status_cta_btn: "OPEN SERVER STATUS",
         kit_overall: "OVERALL",
         load_btn: "LOAD",
@@ -1278,7 +1269,7 @@
       document.getElementById('tab-tier').classList.add('hidden');
       document.getElementById('tab-status').classList.add('hidden');
 
-      ['nav-home', 'nav-tier', 'nav-status'].forEach(navId => {
+      ['nav-home', 'nav-tier'].forEach(navId => {
         const navEl = document.getElementById(navId);
         if (navEl) navEl.classList.replace('text-brand-lightPurple', 'text-gray-300');
       });
@@ -2440,7 +2431,7 @@
     }
 
     /* ========================================================
-       🟣 リアルタイム サーバーステータスモニター（clytiers風統合）
+       🟣 リアルタイム サーバーステータスモニター（JE/BE人数内訳・顔スキン描画対応）
        ======================================================== */
     const DEFAULT_ICON_SVG = "data:image/svg+xml;utf8," + encodeURIComponent(`
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
@@ -2508,8 +2499,7 @@
         const id = (typeof item.id === 'string' && item.id.trim())
           ? item.id.trim()
           : `srv_${Date.now().toString(36)}_${i}_${Math.random().toString(36).slice(2, 6)}`;
-        const label = typeof item.label === 'string' ? item.label.trim() : '';
-        cleaned.push({ id, address: addr, label });
+        cleaned.push({ id, address: addr });
       }
       return cleaned;
     }
@@ -2580,8 +2570,7 @@
         savedServers = [
           {
             id: 'srv_init_1',
-            address: 'mc.hypixel.net',
-            label: 'Hypixel Network'
+            address: 'mc.hypixel.net'
           }
         ];
         persistServers(false);
@@ -2631,7 +2620,7 @@
       const d2 = res2.status === 'fulfilled' ? res2.value : null;
 
       if (!d1 && !d2) {
-        return { online: false, edition };
+        return { online: false, edition, playersOnline: 0, playersMax: 0 };
       }
 
       const base = (d1 && d1.online) ? d1 : ((d2 && d2.online) ? d2 : (d1 || d2));
@@ -2655,6 +2644,8 @@
       return {
         ...base,
         edition,
+        playersOnline: Math.max(d1?.online ? (d1.playersOnline || 0) : 0, d2?.online ? (d2.playersOnline || 0) : 0),
+        playersMax: Math.max(d1?.online ? (d1.playersMax || 0) : 0, d2?.online ? (d2.playersMax || 0) : 0),
         playerList: Array.from(mergedMap.values()),
         plugins: base.plugins.length > 0 ? base.plugins : (secondary?.plugins || []),
         mods: base.mods.length > 0 ? base.mods : (secondary?.mods || [])
@@ -2677,12 +2668,15 @@
           fetchSingleEditionEndpoint(server.address, 'bedrock')
         ]);
 
-        const jData = javaRes.status === 'fulfilled' ? javaRes.value : null;
-        const bData = bedrockRes.status === 'fulfilled' ? bedrockRes.value : null;
+        const jData = javaRes.status === 'fulfilled' ? javaRes.value : { online: false, playersOnline: 0, playersMax: 0 };
+        const bData = bedrockRes.status === 'fulfilled' ? bedrockRes.value : { online: false, playersOnline: 0, playersMax: 0 };
 
         const jOnline = Boolean(jData && jData.online);
         const bOnline = Boolean(bData && bData.online);
         const anyOnline = jOnline || bOnline;
+
+        const javaCount = jOnline ? (jData.playersOnline || 0) : 0;
+        const bedrockCount = bOnline ? (bData.playersOnline || 0) : 0;
 
         if (!anyOnline) {
           const baseFallback = jData || bData;
@@ -2694,6 +2688,10 @@
               detectedMode: 'offline',
               detectedBadge: 'OFFLINE',
               detectedText: 'オフライン / 未検出',
+              javaOnline: false,
+              bedrockOnline: false,
+              javaCount: 0,
+              bedrockCount: 0,
               hostname: server.address,
               ip: baseFallback?.ip || '非公開',
               port: baseFallback?.port || 25565,
@@ -2749,10 +2747,7 @@
           });
         }
 
-        const totalOnline = detectedMode === 'multi'
-          ? Math.max(jData.playersOnline || 0, bData.playersOnline || 0)
-          : (primary.playersOnline || 0);
-
+        const totalOnline = javaCount + bedrockCount;
         const totalMax = detectedMode === 'multi'
           ? Math.max(jData.playersMax || 0, bData.playersMax || 0)
           : (primary.playersMax || 0);
@@ -2767,6 +2762,10 @@
           detectedMode,
           detectedBadge,
           detectedText,
+          javaOnline: jOnline,
+          bedrockOnline: bOnline,
+          javaCount,
+          bedrockCount,
           isMulti: detectedMode === 'multi',
           multiDetails: detectedMode === 'multi' ? { java: jData, bedrock: bData } : null,
           version: versionText,
@@ -2915,30 +2914,22 @@
     function handleAddServer(event) {
       event.preventDefault();
       const addrInput = document.getElementById('add-address-input');
-      const labelInput = document.getElementById('add-label-input');
-
       const address = addrInput.value.trim();
       if (!address) return;
 
-      addServerInternal(address, labelInput.value.trim());
-
+      addServerInternal(address);
       addrInput.value = '';
-      labelInput.value = '';
     }
 
-    function quickAddPreset(address, label) {
-      addServerInternal(address, label);
+    function quickAddPreset(address) {
+      addServerInternal(address);
     }
 
-    function addServerInternal(address, label) {
+    function addServerInternal(address) {
       const existing = savedServers.find(
         s => s.address.toLowerCase() === address.toLowerCase()
       );
       if (existing) {
-        if (label) {
-          existing.label = label;
-          persistServers(false);
-        }
         selectedServerId = existing.id;
         playerSearchQuery = '';
         currentPlayerPage = 1;
@@ -2949,8 +2940,7 @@
 
       const newServer = {
         id: 'srv_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
-        address,
-        label
+        address
       };
 
       savedServers.unshift(newServer);
@@ -2962,7 +2952,7 @@
       renderServerList();
       renderDetailPanel();
       fetchServerStatus(newServer);
-      showToast(`「${address}」を追加しました。Java版/統合版を自動判定中...`);
+      showToast(`「${address}」を追加しました。Java版/統合版の人数を自動判定中...`);
     }
 
     function selectServer(id) {
@@ -2999,7 +2989,7 @@
       const srv = savedServers.find(s => s.id === id);
       if (!srv) return;
       pendingDeleteId = id;
-      document.getElementById('delete-modal-target').textContent = `${srv.label ? srv.label + ' — ' : ''}${srv.address}`;
+      document.getElementById('delete-modal-target').textContent = srv.address;
       const modal = document.getElementById('delete-modal');
       modal.classList.remove('hidden');
       modal.classList.add('flex');
@@ -3052,7 +3042,6 @@
         const isSelected = srv.id === selectedServerId;
 
         const iconSrc = data?.icon || DEFAULT_ICON_SVG;
-        const title = srv.label || srv.address;
         const editionLabel = state.loading && !data
           ? '判定中'
           : (data && data.online ? (data.detectedBadge || 'JE') : 'AUTO');
@@ -3064,7 +3053,7 @@
         if (state.loading && !data) {
           statusBadge = `<span class="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full bg-purple-500/15 text-purple-300 border border-purple-500/30"><i class="fa-solid fa-spinner animate-spin"></i> 判定中</span>`;
           playerCountHtml = `<span class="text-xs font-mono text-gray-500">-- / --</span>`;
-          subInfoHtml = `<span class="text-[11px] text-gray-500">Java版・統合版を自動確認中...</span>`;
+          subInfoHtml = `<span class="text-[11px] text-gray-500">Java版・統合版の人数を確認中...</span>`;
         } else if (data && data.online) {
           statusBadge = `<span class="inline-flex items-center gap-1.5 text-[11px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30"><span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>ONLINE</span>`;
           playerCountHtml = `
@@ -3074,12 +3063,13 @@
             </div>
           `;
           subInfoHtml = `
-            <span class="truncate text-[11px] font-mono text-gray-400">${escapeHTML(data.version)}</span>
+            <span class="text-[11px] font-mono text-purple-300">JE: ${data.javaCount.toLocaleString()}人</span>
+            <span class="text-[11px] font-mono text-fuchsia-300">BE: ${data.bedrockCount.toLocaleString()}人</span>
           `;
         } else {
           statusBadge = `<span class="inline-flex items-center gap-1.5 text-[11px] font-bold px-2 py-0.5 rounded-full bg-red-500/15 text-red-400 border border-red-500/30"><span class="w-1.5 h-1.5 rounded-full bg-red-500"></span>OFFLINE</span>`;
           playerCountHtml = `<span class="text-xs font-mono text-gray-600">0 / 0</span>`;
-          subInfoHtml = `<span class="text-[11px] text-red-400/80 truncate">${state.error ? '接続エラー' : 'オフラインまたは応答なし'}</span>`;
+          subInfoHtml = `<span class="text-[11px] text-red-400/80 truncate">${state.error ? '接続エラー' : 'JE: 0人 / BE: 0人'}</span>`;
         }
 
         const activeBorder = isSelected
@@ -3096,17 +3086,17 @@
                 <div class="flex items-center justify-between gap-2">
                   <div class="flex items-center gap-1.5 min-w-0">
                     <span class="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-brand-dark text-brand-lightPurple border border-brand-border shrink-0">${editionLabel}</span>
-                    <h4 class="font-bold text-sm text-white truncate">${escapeHTML(title)}</h4>
+                    <h4 class="font-bold text-sm text-white font-mono truncate">${escapeHTML(srv.address)}</h4>
                   </div>
                   ${statusBadge}
                 </div>
 
                 <div class="flex items-center justify-between gap-2">
-                  <code class="text-xs font-mono text-gray-400 truncate">${escapeHTML(srv.address)}</code>
+                  <span class="text-[11px] font-mono text-gray-400 truncate">${data && data.online ? escapeHTML(data.version) : 'オフラインまたは応答なし'}</span>
                   ${playerCountHtml}
                 </div>
 
-                <div class="flex items-center justify-between gap-2 pt-0.5">
+                <div class="flex items-center gap-3 pt-0.5">
                   ${subInfoHtml}
                 </div>
               </div>
@@ -3141,7 +3131,7 @@
             </div>
             <h3 class="text-base font-bold font-orbitron text-white">サーバーを選択してください</h3>
             <p class="text-xs text-gray-400 max-w-md mx-auto">
-              左のリストからサーバーをクリックすると、現在のオンライン人数・参加中のプレイヤー名・カラーMOTD・サーバーソフトウェア詳細が表示されます。
+              左のリストからサーバーをクリックすると、Java版・統合版の人数内訳や参加中プレイヤー、MOTDが表示されます。
             </p>
           </div>
         `;
@@ -3174,8 +3164,8 @@
                   <span class="inline-flex items-center gap-1.5 text-xs font-bold px-2.5 py-0.5 rounded-full bg-red-500/15 text-red-400 border border-red-500/30 mb-1">
                     <span class="w-2 h-2 rounded-full bg-red-500"></span> OFFLINE / 応答なし
                   </span>
-                  <h2 class="text-xl font-black text-white">${escapeHTML(srv.label || srv.address)}</h2>
-                  <code class="text-xs font-mono text-gray-400">${escapeHTML(srv.address)}</code>
+                  <h2 class="text-xl font-black text-white font-mono">${escapeHTML(srv.address)}</h2>
+                  <p class="text-xs font-mono text-gray-400 mt-0.5">Java版: 0人 / 統合版: 0人</p>
                 </div>
               </div>
               <button type="button" onclick="fetchServerStatus(savedServers.find(s => s.id === '${srv.id}'))" class="px-3.5 py-2 rounded-xl bg-brand-dark hover:bg-brand-elevated text-xs font-bold text-white border border-brand-border flex items-center gap-1.5 cursor-pointer">
@@ -3227,13 +3217,13 @@
                   ${data.software ? `<span class="text-[11px] font-mono font-bold px-2 py-0.5 rounded-md bg-fuchsia-500/15 text-fuchsia-300 border border-fuchsia-500/30">${escapeHTML(data.software)}</span>` : ''}
                 </div>
 
-                <h2 class="text-xl sm:text-2xl font-black text-white truncate">
-                  ${escapeHTML(srv.label || data.hostname)}
+                <h2 class="text-xl sm:text-2xl font-black text-white font-mono truncate">
+                  ${escapeHTML(srv.address)}
                 </h2>
 
                 <div class="flex flex-wrap items-center gap-2">
                   <code class="text-xs sm:text-sm font-mono text-brand-lightPurple bg-brand-dark px-2.5 py-1 rounded-lg border border-brand-border">
-                    ${escapeHTML(srv.address)}
+                    ${escapeHTML(data.hostname)}
                   </code>
                   <button type="button" onclick="copyText('${escapeAttr(srv.address)}')" class="text-xs px-2.5 py-1 rounded-lg bg-brand-dark hover:bg-brand-elevated text-gray-300 border border-brand-border transition cursor-pointer flex items-center gap-1">
                     <i class="fa-regular fa-copy"></i>
@@ -3259,35 +3249,46 @@
             </div>
           </div>
 
-          ${data.isMulti && data.multiDetails ? `
-            <!-- マルチプレイ (Java + 統合版) 個別ステータスバー -->
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-xs">
-              <div class="bg-brand-dark border border-brand-border rounded-xl p-3 flex items-center justify-between">
+          <!-- Java版・統合版の人数内訳バー -->
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div class="bg-brand-dark border border-purple-500/40 rounded-xl p-3.5 flex items-center justify-between">
+              <div class="space-y-0.5 min-w-0">
                 <div class="flex items-center gap-2">
-                  <span class="px-2 py-0.5 rounded bg-purple-500/20 text-purple-300 font-mono font-bold text-[11px]">Java版</span>
-                  <span class="font-mono text-gray-300 truncate max-w-[140px]">${data.multiDetails.java?.online ? escapeHTML(data.multiDetails.java.version) : 'オフライン/未応答'}</span>
+                  <span class="px-2 py-0.5 rounded bg-purple-500/20 text-purple-300 font-mono font-bold text-[11px]">Java版 (JE)</span>
+                  <span class="text-[11px] font-mono ${data.javaOnline ? 'text-emerald-400' : 'text-gray-500'}">${data.javaOnline ? '稼働中' : '未応答'}</span>
                 </div>
-                <span class="font-mono font-bold ${data.multiDetails.java?.online ? 'text-emerald-400' : 'text-gray-500'}">
-                  ${data.multiDetails.java?.online ? `${data.multiDetails.java.playersOnline}人 (Port:${data.multiDetails.java.port})` : 'OFFLINE'}
-                </span>
+                <div class="text-[11px] font-mono text-gray-400 truncate">
+                  ${data.multiDetails?.java?.version ? escapeHTML(data.multiDetails.java.version) : (data.javaOnline ? escapeHTML(data.version) : 'オフライン')}
+                </div>
               </div>
-              <div class="bg-brand-dark border border-brand-border rounded-xl p-3 flex items-center justify-between">
-                <div class="flex items-center gap-2">
-                  <span class="px-2 py-0.5 rounded bg-fuchsia-500/20 text-fuchsia-300 font-mono font-bold text-[11px]">統合版 (BE)</span>
-                  <span class="font-mono text-gray-300 truncate max-w-[140px]">${data.multiDetails.bedrock?.online ? escapeHTML(data.multiDetails.bedrock.version) : 'オフライン/未応答'}</span>
-                </div>
-                <span class="font-mono font-bold ${data.multiDetails.bedrock?.online ? 'text-fuchsia-300' : 'text-gray-500'}">
-                  ${data.multiDetails.bedrock?.online ? `${data.multiDetails.bedrock.playersOnline}人 (Port:${data.multiDetails.bedrock.port})` : 'OFFLINE'}
-                </span>
+              <div class="text-right shrink-0">
+                <span class="text-xl font-black font-mono text-purple-300">${data.javaCount.toLocaleString()}</span>
+                <span class="text-xs font-mono text-gray-400">人</span>
               </div>
             </div>
-          ` : ''}
+
+            <div class="bg-brand-dark border border-fuchsia-500/40 rounded-xl p-3.5 flex items-center justify-between">
+              <div class="space-y-0.5 min-w-0">
+                <div class="flex items-center gap-2">
+                  <span class="px-2 py-0.5 rounded bg-fuchsia-500/20 text-fuchsia-300 font-mono font-bold text-[11px]">統合版 (BE)</span>
+                  <span class="text-[11px] font-mono ${data.bedrockOnline ? 'text-emerald-400' : 'text-gray-500'}">${data.bedrockOnline ? '未応答/停止' : '未応答/停止'}</span>
+                </div>
+                <div class="text-[11px] font-mono text-gray-400 truncate">
+                  ${data.multiDetails?.bedrock?.version ? escapeHTML(data.multiDetails.bedrock.version) : (data.bedrockOnline ? escapeHTML(data.version) : 'オフライン')}
+                </div>
+              </div>
+              <div class="text-right shrink-0">
+                <span class="text-xl font-black font-mono text-fuchsia-300">${data.bedrockCount.toLocaleString()}</span>
+                <span class="text-xs font-mono text-gray-400">人</span>
+              </div>
+            </div>
+          </div>
 
           <!-- 2. 主要メトリクスグリッド -->
           <div class="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
             <div class="bg-brand-dark border border-brand-border rounded-xl p-3.5 space-y-2">
               <div class="flex items-center justify-between text-xs text-gray-400">
-                <span class="font-bold flex items-center gap-1.5"><i class="fa-solid fa-users text-emerald-400"></i> 参加人数</span>
+                <span class="font-bold flex items-center gap-1.5"><i class="fa-solid fa-users text-emerald-400"></i> 合計参加人数</span>
                 <span class="font-mono text-[11px]">${fillPercent}%</span>
               </div>
               <div class="flex items-baseline gap-1.5">
@@ -3508,7 +3509,7 @@
         paginationHtml = `
           <div class="flex items-center justify-between pt-2 text-[11px] font-mono text-gray-400">
             <span>全 ${totalItems.toLocaleString()}人を表示中（1ページ最大50人）</span>
-            <span class="text-gray-500">Mojang公式テクスチャAPI描画</span>
+            <span class="text-gray-500">プレイヤー顔スキン描画</span>
           </div>
         `;
       }
@@ -3606,75 +3607,118 @@
       }
     }
 
-    async function hydrateOfficialPlayerHeads() {
+    /* ========================================================
+       🟣 参加プレイヤーの顔スキン取得・描画
+       ======================================================== */
+    function hydrateOfficialPlayerHeads() {
       const canvases = document.querySelectorAll('canvas[data-mc-head="true"]');
       canvases.forEach(canvas => {
-        drawMojangOfficialHead(canvas);
+        drawPlayerFaceSkin(canvas);
       });
     }
 
-    async function drawMojangOfficialHead(canvas) {
-      const username = canvas.dataset.username;
-      const uuid = canvas.dataset.uuid;
+    function loadImageWithCors(url) {
+      return new Promise((resolve, reject) => {
+        const img = new Image();
+        img.crossOrigin = 'Anonymous';
+        img.onload = () => resolve(img);
+        img.onerror = () => reject(new Error('image load failed'));
+        img.src = url;
+      });
+    }
+
+    async function drawPlayerFaceSkin(canvas) {
+      const username = (canvas.dataset.username || '').trim();
+      const uuid = (canvas.dataset.uuid || '').trim();
       const isBedrock = canvas.dataset.bedrock === 'true';
       const ctx = canvas.getContext('2d');
       ctx.imageSmoothingEnabled = false;
 
-      drawDefaultSteveCanvas(ctx);
-
-      if (!username || isBedrock) {
-        loadFallbackAvatarToCanvas(ctx, username);
+      if (!username && !uuid) {
+        drawDefaultSteveCanvas(ctx);
         return;
       }
 
       try {
-        const skinTextureUrl = await resolveOfficialMojangSkinUrl(username, uuid);
-        if (skinTextureUrl) {
-          const loaded = await renderSkinPngHeadToCanvas(ctx, skinTextureUrl);
-          if (loaded) return;
+        const skinUrl = await resolvePlayerSkinTextureUrl(username, uuid, isBedrock);
+        if (skinUrl) {
+          const skinImg = await loadImageWithCors(skinUrl);
+          ctx.clearRect(0, 0, 32, 32);
+          ctx.imageSmoothingEnabled = false;
+          ctx.drawImage(skinImg, 8, 8, 8, 8, 0, 0, 32, 32);
+          if (skinImg.width >= 64 && skinImg.height >= 32) {
+            ctx.drawImage(skinImg, 40, 8, 8, 8, 0, 0, 32, 32);
+          }
+          return;
         }
-      } catch (e) {}
+      } catch (_) {}
 
-      loadFallbackAvatarToCanvas(ctx, uuid || username);
+      const cleanId = uuid ? uuid.replace(/-/g, '') : username;
+      const avatarSources = [
+        `https://mc-heads.net/avatar/${encodeURIComponent(cleanId)}/32`,
+        `https://minotar.net/avatar/${encodeURIComponent(username || cleanId)}/32.png`
+      ];
+
+      for (const src of avatarSources) {
+        try {
+          const avImg = await loadImageWithCors(src);
+          ctx.clearRect(0, 0, 32, 32);
+          ctx.imageSmoothingEnabled = false;
+          ctx.drawImage(avImg, 0, 0, 32, 32);
+          return;
+        } catch (_) {}
+      }
+
+      drawDefaultSteveCanvas(ctx);
     }
 
-    async function resolveOfficialMojangSkinUrl(username, providedUuid) {
-      const cacheKey = (providedUuid || username).toLowerCase();
+    async function resolvePlayerSkinTextureUrl(username, providedUuid, isBedrock) {
+      const cleanProvidedUuid = providedUuid ? providedUuid.replace(/-/g, '').toLowerCase() : '';
+      const cacheKey = `${isBedrock ? 'be:' : 'je:'}${(cleanProvidedUuid || username).toLowerCase()}`;
+
       if (officialSkinCache.has(cacheKey)) {
         return officialSkinCache.get(cacheKey);
       }
 
-      let cleanUuid = providedUuid ? providedUuid.replace(/-/g, '') : null;
-
-      if (!cleanUuid) {
-        const profileRes = await fetchJsonWithCorsFallback(
-          `https://api.mojang.com/users/profiles/minecraft/${encodeURIComponent(username)}`
-        );
-        if (profileRes && profileRes.id) {
-          cleanUuid = profileRes.id.replace(/-/g, '');
-        }
+      if (cleanProvidedUuid && /^[0-9a-f]{32}$/.test(cleanProvidedUuid)) {
+        const url = `https://mc-heads.net/skin/${cleanProvidedUuid}`;
+        officialSkinCache.set(cacheKey, url);
+        return url;
       }
 
-      if (!cleanUuid) {
-        officialSkinCache.set(cacheKey, null);
-        return null;
-      }
-
-      const sessionRes = await fetchJsonWithCorsFallback(
-        `https://sessionserver.mojang.com/session/minecraft/profile/${cleanUuid}`
-      );
-
-      if (sessionRes && Array.isArray(sessionRes.properties)) {
-        const texProp = sessionRes.properties.find(p => p.name === 'textures');
-        if (texProp && texProp.value) {
-          const decodedJson = JSON.parse(atob(texProp.value));
-          const skinUrl = decodedJson?.textures?.SKIN?.url || null;
-          if (skinUrl) {
-            const secureUrl = skinUrl.replace(/^http:\/\//i, 'https://');
-            officialSkinCache.set(cacheKey, secureUrl);
-            return secureUrl;
+      if (!isBedrock && username) {
+        try {
+          const profileRes = await fetchJsonWithCorsFallback(
+            `https://api.mojang.com/users/profiles/minecraft/${encodeURIComponent(username)}`
+          );
+          if (profileRes && profileRes.id) {
+            const cleanUuid = profileRes.id.replace(/-/g, '').toLowerCase();
+            const sessionRes = await fetchJsonWithCorsFallback(
+              `https://sessionserver.mojang.com/session/minecraft/profile/${cleanUuid}`
+            );
+            if (sessionRes && Array.isArray(sessionRes.properties)) {
+              const texProp = sessionRes.properties.find(p => p.name === 'textures');
+              if (texProp && texProp.value) {
+                const decoded = JSON.parse(atob(texProp.value));
+                const skinUrl = decoded?.textures?.SKIN?.url;
+                if (skinUrl) {
+                  const secureUrl = skinUrl.replace(/^http:\/\//i, 'https://');
+                  officialSkinCache.set(cacheKey, secureUrl);
+                  return secureUrl;
+                }
+              }
+            }
+            const mcHeadsUrl = `https://mc-heads.net/skin/${cleanUuid}`;
+            officialSkinCache.set(cacheKey, mcHeadsUrl);
+            return mcHeadsUrl;
           }
-        }
+        } catch (_) {}
+      }
+
+      if (username) {
+        const fallbackSkin = `https://mc-heads.net/skin/${encodeURIComponent(username)}`;
+        officialSkinCache.set(cacheKey, fallbackSkin);
+        return fallbackSkin;
       }
 
       officialSkinCache.set(cacheKey, null);
@@ -3693,38 +3737,6 @@
       } catch (e) {}
 
       return null;
-    }
-
-    function renderSkinPngHeadToCanvas(ctx, skinUrl) {
-      return new Promise((resolve) => {
-        const img = new Image();
-        img.crossOrigin = 'Anonymous';
-        img.onload = () => {
-          try {
-            ctx.clearRect(0, 0, 32, 32);
-            ctx.imageSmoothingEnabled = false;
-            ctx.drawImage(img, 8, 8, 8, 8, 0, 0, 32, 32);
-            ctx.drawImage(img, 40, 8, 8, 8, 0, 0, 32, 32);
-            resolve(true);
-          } catch (err) {
-            resolve(false);
-          }
-        };
-        img.onerror = () => resolve(false);
-        img.src = skinUrl;
-      });
-    }
-
-    function loadFallbackAvatarToCanvas(ctx, identifier) {
-      if (!identifier) return;
-      const img = new Image();
-      img.crossOrigin = 'Anonymous';
-      img.onload = () => {
-        ctx.clearRect(0, 0, 32, 32);
-        ctx.imageSmoothingEnabled = false;
-        ctx.drawImage(img, 0, 0, 32, 32);
-      };
-      img.src = `https://mc-heads.net/avatar/${encodeURIComponent(identifier)}/32`;
     }
 
     function drawDefaultSteveCanvas(ctx) {
